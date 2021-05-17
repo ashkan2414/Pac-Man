@@ -7,9 +7,7 @@ pygame.init()
 class PACMAN:
 
     def __init__(self):
-        self.screen = pygame.display.set_mode((START_WIDTH, START_HEIGHT))
-        self.width = START_WIDTH
-        self.height = START_HEIGHT
+        self.screen = pygame.display.set_mode(START_SIZE, pygame.RESIZABLE)
         self.clock = pygame.time.Clock()
         self.running = True
 
@@ -21,10 +19,13 @@ class PACMAN:
 
         self.set_game_state(GameStateType.START_MENU)
 
+        globals.size = START_SIZE
+
     def run(self):
         while self.running:
             self.current_state.update()
-
+            self.clock.tick(FPS)
+            pygame.display.update()
         pygame.quit()
         sys.exit()
 
