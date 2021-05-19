@@ -3,6 +3,7 @@ from settings import *
 import globals
 import pygame
 from gui_tools import *
+from math_tools import *
 
 
 class GameStateType(Enum):
@@ -20,7 +21,14 @@ class GameState:
         pass
 
     def update(self):
+        self.events()
+        self.draw()
+
+    def events(self):
         pass
+
+    def draw(self):
+        globals.game.screen.fill((255, 255, 255))
 
     def end(self):
         pass
@@ -79,6 +87,113 @@ class GameMenu(GameState):
     def __init__(self):
         super().__init__(GameStateType.GAME_MENU)
 
-    def update(self):
+        pieces = []
+
+        self.maze = [[True for x in range(10 * BLOCK_DIVISION)] for y in range(10 * BLOCK_DIVISION)]
+
+        for piece in simple_maze:
+            points = []
+            for point in piece:
+                points.append(Point(point[0], point[1]))
+            pieces.append(MazePiece(points))
+
+        for piece in pieces:
+
+            points = piece.vertices.copy() + [piece.vertices[0]]
+            current_point = points[0]
+            for point in points[1:]:
+                direction = Vector2(point - current_point).normalised()
+                while current_point != point:
+                    x = int(current_point.x) + BLOCK_DIVISION // 2
+                    y = int(current_point.y) + BLOCK_DIVISION // 2
+
+                    if x < len(self.maze) // 2:
+                        self.maze[x][y] = False
+                        self.maze[len(self.maze) - 1 - x][y] = False
+
+                    current_point += direction
+
+    def events(self):
         for event in pygame.event.get():
             GameState.base_events(event)
+
+    def draw(self):
+
+        super().draw()
+
+        for x in range(len(self.maze)):
+            for y in range(len(self.maze[x])):
+
+                wall = self.maze[x][y]
+                if wall:
+                    color = (10, 10, 10)
+                else:
+                    color = (65, 65, 65)
+
+                pygame.draw.rect(globals.game.screen, color,
+                                 (x * BLOCK_SIZE + BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+
+        color = (100, 100, 100)
+        for x in range(len(self.maze) + 1):
+            pygame.draw.line(globals.game.screen, color, (x * BLOCK_SIZE + BLOCK_SIZE, BLOCK_SIZE),
+                             (x * BLOCK_SIZE + BLOCK_SIZE, (len(self.maze[0]) + 1) * BLOCK_SIZE))
+
+        for y in range(len(self.maze[0]) + 1):
+            pygame.draw.line(globals.game.screen, color, (BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE),
+                             ((len(self.maze) + 1) * BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE))
+
+
+direction_vector_map = {"L": Vector2(Point(-1, 0)), "R": Vector2(Point(1, 0)), "U": Vector2(Point(0, 1)),
+                        "D": Vector2(Point(0, -1)), }
+
+
+class MazePiece:
+
+    def __init__(self, points):
+        self.center_points = points
+        self.vertices = []
+        self.calculate_points()
+
+    def calculate_points(self):
+
+        unsorted_vertices = []
+
+        for point in self.center_points:
+            half_block = BLOCK_DIVISION // 2
+            point.x = point.x * BLOCK_DIVISION + half_block
+            point.y = point.y * BLOCK_DIVISION + half_block
+            unsorted_vertices.append(point + Point(half_block + 1, half_block + 1))
+            unsorted_vertices.append(point + Point(half_block + 1, -half_block))
+            unsorted_vertices.append(point + Point(-half_block, half_block + 1))
+            unsorted_vertices.append(point + Point(-half_block, -half_block))
+
+        for vertex in unsorted_vertices.copy():
+
+            count = unsorted_vertices.count(vertex)
+            if count == 4:
+                num_to_remove = 4
+            else:
+                num_to_remove = count - 1
+            for i in range(num_to_remove):
+                unsorted_vertices.remove(vertex)
+
+        current_vertex = Point.left_most(unsorted_vertices)
+        unsorted_vertices.remove(current_vertex)
+        self.vertices = [current_vertex]
+
+        while unsorted_vertices:
+            next_vertex = [None, -1000]
+            for point in unsorted_vertices:
+                angle = current_vertex.angle(point)
+                if current_vertex.is_collinear(point):
+                    vector = Vector2(point - current_vertex)
+                    if len(self.vertices) < 2 or not vector.intersects_points(self.vertices[:-1], current_vertex):
+                        if angle > next_vertex[1]:
+                            next_vertex = [point, angle]
+                        elif angle == next_vertex[1]:
+                            if current_vertex.distance(point) < current_vertex.distance(next_vertex[0]):
+                                next_vertex = [point, angle]
+
+            current_vertex = next_vertex[0]
+            unsorted_vertices.remove(next_vertex[0])
+            self.vertices.append(next_vertex[0])

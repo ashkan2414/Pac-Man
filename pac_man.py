@@ -11,20 +11,22 @@ class PACMAN:
         self.clock = pygame.time.Clock()
         self.running = True
 
+        globals.game = self
+
         self.states = {GameStateType.START_MENU: StartMenu(),
                        GameStateType.SETTING_MENU: SettingMenu(),
                        GameStateType.GAME_MENU: GameMenu()}
 
         self.current_state = None
 
-        self.set_game_state(GameStateType.START_MENU)
+        self.set_game_state(GameStateType.GAME_MENU)
 
         globals.size = START_SIZE
 
     def run(self):
         while self.running:
-            self.current_state.update()
             self.clock.tick(FPS)
+            self.current_state.update()
             pygame.display.update()
         pygame.quit()
         sys.exit()
