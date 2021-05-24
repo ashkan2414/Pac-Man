@@ -9,6 +9,8 @@ HEIGHT_TILE_COUNT = 9
 CENTER_PIECE_WIDTH = 3
 CENTER_PIECE_HEIGHT = 2
 
+EDGE_PIECE_CHANCE = 50
+
 BLOCK_DIVISION = 3
 BLOCK_SIZE = 20
 
@@ -16,6 +18,7 @@ BLOCK_SIZE = 20
 FONT = "ariel black"
 HEADER_SIZE = 48
 
+PIECE_PRESETS_FILE_PATH = "piece_presets.pickle"
 maze_piece_shape_presets = [
     [""],
     ["L", "LU"],
@@ -28,3 +31,13 @@ maze_piece_shape_presets = [
     ["U", "UU", "L", "LL", "D", "DD"],
     ["U", "R", "L"]
 ]
+
+
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+CYAN = (0, 255, 255)
+PURPLE = (255, 0, 255)
