@@ -262,12 +262,12 @@ class MazePiece:
         unsorted_vertices = []
         for point in self.center_points:
             scaled_center_point = point * TILE_SCALE_FACTOR + Point(TILE_SCALE_FACTOR // 2, TILE_SCALE_FACTOR // 2)
+            half_tile = TILE_SCALE_FACTOR // 2
             self.scaled_center_points.append(scaled_center_point)
-            unsorted_vertices.append(
-                scaled_center_point + Point(TILE_SCALE_FACTOR // 2 + 1, TILE_SCALE_FACTOR // 2 + 1))
-            unsorted_vertices.append(scaled_center_point + Point(TILE_SCALE_FACTOR // 2 + 1, -TILE_SCALE_FACTOR // 2))
-            unsorted_vertices.append(scaled_center_point + Point(-TILE_SCALE_FACTOR // 2, TILE_SCALE_FACTOR // 2 + 1))
-            unsorted_vertices.append(scaled_center_point + Point(-TILE_SCALE_FACTOR // 2, -TILE_SCALE_FACTOR // 2))
+            unsorted_vertices.append(scaled_center_point + Point(half_tile + 1, half_tile + 1))
+            unsorted_vertices.append(scaled_center_point + Point(half_tile + 1, -half_tile))
+            unsorted_vertices.append(scaled_center_point + Point(-half_tile, half_tile + 1))
+            unsorted_vertices.append(scaled_center_point + Point(-half_tile, -half_tile))
 
         # Get rid of overlapping vertices and vertices which lie in the middle of the piece
         # For each vertex
