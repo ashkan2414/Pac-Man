@@ -12,20 +12,21 @@ def generate_maze():
         list: A generated maze
     """
     # Create empty 2D list to store maze
-    maze = [[MazeBlockType.EMPTY for y in range((HEIGHT_TILE_COUNT + 1) * BLOCK_DIVISION)] for x in
-            range(int((WIDTH_TILE_COUNT // 2 + 1.5) * BLOCK_DIVISION))]
+    maze = [[MazeBlockType.EMPTY for y in range((HEIGHT_TILE_COUNT + 1) * TILE_SCALE_FACTOR)] for x in
+            range(int((WIDTH_TILE_COUNT // 2 + 1.5) * TILE_SCALE_FACTOR))]
 
     # Get the maze pieces
     pieces = generate_pieces(WIDTH_TILE_COUNT // 2 + 1, HEIGHT_TILE_COUNT)
 
+    # Set the first edge piece in the pieces list to an empty edge piece
     for piece in pieces:
-        if piece.is_edge_piece():
-            piece.outer_wall = True
+        if piece.is_edge_piece(2):
+            piece.empty_edge_piece = True
             break
 
     # Insert each piece into maze
     for piece in pieces:
-        piece.generate_map(maze)
+        piece.draw(maze)
 
     # Mirror the maze
     for x in range(len(maze) - 1, -1, -1):
@@ -185,111 +186,203 @@ class MazeBlockType:
 
 
 class MazePiece:
-
     def __init__(self, points):
         self.center_points = points
-        self.divided_center_points = []
+        self.scaled_center_points = []
         self.vertices = []
-        self.outer_wall = False
+        self.empty_edge_piece = False
 
     def __str__(self):
+        """
+        Returns the string representation of the maze piece
+
+        Returns:
+            string: The string representation of the maze piece
+        """
         return str(self.center_points)
 
     def __repr__(self):
+        """
+        Returns the string representation of the maze piece
+
+        Returns:
+            string: The string representation of the maze piece
+        """
         return self.__str__()
 
     def __eq__(self, other):
+        """
+        Returns whether this maze piece is equal to another maze piece
+
+        Returns:
+            bool: Whether this maze piece is equal to another maze piece
+        """
         return self.center_points == other.center_points
 
     def __hash__(self):
+        """
+        Returns the hash of the maze piece
+
+        Returns:
+            int: The hash of the maze piece
+        """
         return hash(tuple(self.center_points))
 
     def rotate(self, angle, axis):
+        """
+        Rotates the maze piece and its point around an axis point
+
+        Parameters:
+            angle (int, float): The angle to rotate
+            axis (Point): The point to rotate around
+        """
 
         for point in self.center_points:
             point.rotate(angle, axis)
             point.round()
 
     def translate(self, displacement):
+        """
+        Translates the maze piece and its point by a displacement
+
+        Parameters:
+            displacement (Point, Vector): The amount and direction to translate
+        """
 
         for point in self.center_points:
             point.translate(displacement)
             point.round()
 
     def calculate_vertices(self):
-
+        """
+        Calculates the edge vertex points of the piece in order
+        """
+        # Get the unsorted vertices by taking the scaling the tiles with the tile scale factor and getting the corner
+        # blocks of the scaled tiles
         unsorted_vertices = []
         for point in self.center_points:
-            half_block = BLOCK_DIVISION // 2
-            divided_point = point * BLOCK_DIVISION + Point(half_block, half_block)
-            self.divided_center_points.append(divided_point)
-            unsorted_vertices.append(divided_point + Point(half_block + 1, half_block + 1))
-            unsorted_vertices.append(divided_point + Point(half_block + 1, -half_block))
-            unsorted_vertices.append(divided_point + Point(-half_block, half_block + 1))
-            unsorted_vertices.append(divided_point + Point(-half_block, -half_block))
+            scaled_center_point = point * TILE_SCALE_FACTOR + Point(TILE_SCALE_FACTOR // 2, TILE_SCALE_FACTOR // 2)
+            self.scaled_center_points.append(scaled_center_point)
+            unsorted_vertices.append(
+                scaled_center_point + Point(TILE_SCALE_FACTOR // 2 + 1, TILE_SCALE_FACTOR // 2 + 1))
+            unsorted_vertices.append(scaled_center_point + Point(TILE_SCALE_FACTOR // 2 + 1, -TILE_SCALE_FACTOR // 2))
+            unsorted_vertices.append(scaled_center_point + Point(-TILE_SCALE_FACTOR // 2, TILE_SCALE_FACTOR // 2 + 1))
+            unsorted_vertices.append(scaled_center_point + Point(-TILE_SCALE_FACTOR // 2, -TILE_SCALE_FACTOR // 2))
 
+        # Get rid of overlapping vertices and vertices which lie in the middle of the piece
+        # For each vertex
         for vertex in unsorted_vertices.copy():
-
-            count = unsorted_vertices.count(vertex)
-            if count == 4:
+            # Get the number of identical vertices
+            frequency = unsorted_vertices.count(vertex)
+            # If there are 4 identical vertices, then the vertex lies in the center of the piece
+            if frequency == 4:
+                # Remove all 4 vertices
                 num_to_remove = 4
+            # Otherwise
             else:
-                num_to_remove = count - 1
+                # Remove all but one
+                num_to_remove = frequency - 1
+            # Remove the vertices
             for i in range(num_to_remove):
                 unsorted_vertices.remove(vertex)
 
+        # Start at the left most vertex
         current_vertex = Point.left_most(unsorted_vertices)
+        # Remove it from unsorted vertices list and add it to the vertices
         unsorted_vertices.remove(current_vertex)
         self.vertices = [current_vertex]
 
+        # While not all vertices have been ordered
         while unsorted_vertices:
+            # Holds the best candidate vertex along with the angle it makes with the current vertex
             next_vertex = [Point(1000, 1000), -1000]
+            # For each vertex in the unsorted list
             for vertex in unsorted_vertices:
-                angle = Vector.angle(current_vertex.vector(), vertex.vector())
+                # If the vertices are lined up directly on the grid
                 if current_vertex.is_grid_collinear(vertex):
+                    # If the vector from current vertex to the vertex doesn't intersect any of the ordered vertices
                     if len(self.vertices) < 2 or not (vertex - current_vertex).vector().intersects_points(
                             self.vertices[:-1], current_vertex):
+                        # Get the angle from the vertex and the current vertex
+                        angle = Vector.angle(current_vertex.vector(), vertex.vector())
+                        # If the angle is bigger than the best vertex so far, set the best vertex to this vertex
                         if angle > next_vertex[1]:
                             next_vertex = [vertex, angle]
+                        # If the angle is the same as best vertex so far, only set the best vertex to this vertex if
+                        # its closer to the current vertex
                         elif angle == next_vertex[1]:
                             if Point.distance(current_vertex, vertex) < Point.distance(current_vertex, next_vertex[0]):
                                 next_vertex = [vertex, angle]
 
+            # Set the current vertex to the new vertex
             current_vertex = next_vertex[0]
+            # Remove the new vertex from unsorted list and add it to the vertices list
             unsorted_vertices.remove(next_vertex[0])
             self.vertices.append(next_vertex[0])
 
-    def generate_map(self, maze):
+    def draw(self, maze):
+        """
+        Draws the piece on the maze
 
+        Parameters:
+            maze (list): The maze to draw on
+        """
+        # Calculate the vertices
         self.calculate_vertices()
 
-        if not self.outer_wall:
-            for center_point in self.divided_center_points:
-                for x in range(BLOCK_DIVISION):
-                    for y in range(BLOCK_DIVISION):
+        # If the piece isn't a empty edge piece type, start by filling all the piece tile blocks with walls
+        if not self.empty_edge_piece:
+            # For each block around each scaled center point
+            for center_point in self.scaled_center_points:
+                for x in range(TILE_SCALE_FACTOR):
+                    for y in range(TILE_SCALE_FACTOR):
                         point = center_point + Point(x, y)
+                        # Set the block to wall
                         maze[point.x][point.y] = MazeBlockType.WALL
 
-            current_point = self.vertices[0]
-            for point in self.vertices[1:] + [current_point]:
-                direction = (point - current_point).vector().normalised()
-                while current_point != point:
-                    x = int(current_point.x) + BLOCK_DIVISION // 2
-                    y = int(current_point.y) + BLOCK_DIVISION // 2
-                    if x < len(maze):
+        # Set the current point the first vertex in the vertices list
+        current_point = self.vertices[0]
+        # Cycle through vertices starting from the second vertices
+        for point in self.vertices[1:] + [current_point]:
+            # Get the direction going from the current point to current vertex
+            direction = (point - current_point).vector().normalised()
+            # While we still haven't arrived at the current vertex
+            while current_point != point:
+                # Move the point down and right by half the scale factor to make room for the outer walls
+                x = int(current_point.x) + TILE_SCALE_FACTOR // 2
+                y = int(current_point.y) + TILE_SCALE_FACTOR // 2
+                # If the x value is within the map width
+                if x < len(maze):
+                    # If not an empty edge piece, set current point to path otherwise, only make it a path if the point
+                    # doesn't lie on the edge of the maze
+                    if not self.empty_edge_piece or (x > TILE_SCALE_FACTOR // 2 and TILE_SCALE_FACTOR // 2 < y < len(
+                            maze[0]) - TILE_SCALE_FACTOR // 2 - 1):
                         maze[x][y] = MazeBlockType.PATH
+                        # Set all the empty blocks around this current path block to walls
                         for block in get_surrounding_blocks(Point(x, y)):
-                            if 0 <= block.x < len(maze) and 0 <= block.y < len(maze[0]) and maze[block.x][
-                                block.y] == MazeBlockType.EMPTY:
-                                maze[block.x][block.y] = MazeBlockType.WALL
+                            if 0 <= block.x < len(maze) and 0 <= block.y < len(maze[0]):
+                                if maze[block.x][block.y] == MazeBlockType.EMPTY:
+                                    maze[block.x][block.y] = MazeBlockType.WALL
+                # Move to the next point by going towards the vertex by one block
+                current_point += direction
 
-                    current_point += direction
+    def is_edge_piece(self, edge_density):
+        """
+        Returns whether this maze piece is an edge piece
 
-    def is_edge_piece(self):
+        Parameters:
+            edge_density (int): The number of tiles on the edge required for this to be considered an edge piece
 
+        Returns:
+            bool: Whether this maze piece is an edge piece
+        """
         edge_tiles = 0
+        # For every unscaled center point
         for point in self.center_points:
+            # If the point is on the left edge
             if point.x == 0:
+                # Increment the number of edge tiles
                 edge_tiles += 1
 
-        return edge_tiles > 2
+        # If the number of edge tiles is equal to or greater than the required edge density, return true
+        return edge_tiles >= edge_density

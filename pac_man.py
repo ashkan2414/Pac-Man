@@ -13,13 +13,13 @@ class PACMAN:
 
         globals.game = self
 
-        self.states = {GameStateType.START_MENU: StartMenu(),
-                       GameStateType.SETTING_MENU: SettingMenu(),
-                       GameStateType.GAME_MENU: GameMenu()}
+        self.states = {globals.GameStateType.START_MENU: StartMenu(),
+                       globals.GameStateType.SETTING_MENU: SettingMenu(),
+                       globals.GameStateType.GAME_MENU: GameMenu()}
 
         self.current_state = None
 
-        self.set_game_state(GameStateType.GAME_MENU)
+        self.set_game_state(globals.GameStateType.GAME_MENU)
 
         globals.size = START_SIZE
 
