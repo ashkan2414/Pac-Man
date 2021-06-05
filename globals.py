@@ -1,5 +1,6 @@
 from enum import Enum
 
+delta_time = 0
 game = None
 size = (0, 0)
 

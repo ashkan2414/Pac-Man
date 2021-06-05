@@ -1,54 +1,14 @@
-import copy
-from enum import Enum
-from timeit import default_timer as timer
-
 import globals
-from settings import *
-from tools import *
+from game_component import GameComponent
 from maze import *
+from player import *
 
 
-class GameState:
+class GameState(GameComponent):
 
     def __init__(self, state_type):
+        super().__init__()
         self.type = state_type
-
-    def start(self):
-        pass
-
-    def update(self):
-        self.events()
-        self.draw()
-
-    def events(self):
-        pass
-
-    def draw(self):
-        globals.game.screen.fill((255, 255, 255))
-
-    def end(self):
-        pass
-
-    @staticmethod
-    def default_events(event):
-        if event.type == pygame.QUIT:
-            globals.game.running = False
-        if event.type == pygame.VIDEORESIZE:
-            new_size = list(event.dict['size'])
-
-            if new_size[0] < MIN_SIZE[0]:
-                new_size[0] = MIN_SIZE[0]
-            if new_size[1] < MIN_SIZE[1]:
-                new_size[1] = MIN_SIZE[1]
-
-            size_change = (abs(new_size[0] - globals.size[0]), abs(new_size[1] - globals.size[1]))
-            if size_change[0] > size_change[1]:
-                new_size[1] = int(new_size[0] // ASPECT_RATIO)
-            else:
-                new_size[0] = int(new_size[1] * ASPECT_RATIO)
-
-            globals.game.screen = pygame.display.set_mode(new_size, pygame.RESIZABLE)
-            globals.size = tuple(new_size)
 
 
 class StartMenu(GameState):
@@ -56,16 +16,18 @@ class StartMenu(GameState):
     def __init__(self):
         super().__init__(globals.GameStateType.START_MENU)
 
-    def update(self):
-        for event in pygame.event.get():
-            GameState.default_events(event)
+    def process_events(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                globals.game.set_game_state(globals.GameStateType.GAME_MENU)
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    globals.game.set_game_state(globals.GameStateType.GAME_MENU)
+        super().process_events(event)
 
+    def draw(self):
         GUITools.draw_text("PAC-MAN", globals.game.screen, [globals.size[0] // 2, 100],
                            FONT, HEADER_SIZE, (170, 130, 60))
+
+        super().draw()
 
 
 class SettingMenu(GameState):
@@ -73,30 +35,45 @@ class SettingMenu(GameState):
     def __init__(self):
         super().__init__(globals.GameStateType.SETTING_MENU)
 
-    def update(self):
-        for event in pygame.event.get():
-            GameState.default_events(event)
-
 
 class GameMenu(GameState):
 
     def __init__(self):
         super().__init__(globals.GameStateType.GAME_MENU)
-        self.maze = generate_maze()
+        self.maze = Maze()
 
-    def events(self):
-        for event in pygame.event.get():
-            GameState.default_events(event)
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    self.maze = generate_maze()
+        self.player = Player(PAC_MAN_SPEED, None)
+        self.child_game_components.append(self.player)
+
+    def start(self):
+        self.maze.generate_maze()
+
+        path_found = False
+
+        for x in range(self.maze.width):
+            for y in range(self.maze.height):
+                if self.maze[x][y] == MazeBlockType.PATH:
+                    self.player.set_start_location(Point(x, y))
+                    path_found = True
+                    break
+
+            if path_found:
+                break
+
+        super().start()
+
+    def process_events(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                pass
+                # self.maze = generate_maze()
+
+        super().process_events(event)
 
     def draw(self):
-
-        super().draw()
-
-        for x in range(len(self.maze)):
-            for y in range(len(self.maze[x])):
+        globals.game.screen.fill(WHITE)
+        for x in range(self.maze.width):
+            for y in range(self.maze.height):
 
                 block_type = self.maze[x][y]
                 if block_type == MazeBlockType.WALL:
@@ -107,13 +84,16 @@ class GameMenu(GameState):
                     color = WHITE
 
                 pygame.draw.rect(globals.game.screen, color,
-                                 (x * BLOCK_SIZE + BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                                 (x * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE, y * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE,
+                                  BLOCK_PIXEL_SIZE, BLOCK_PIXEL_SIZE))
 
         color = (100, 100, 100)
-        for x in range(len(self.maze) + 1):
-            pygame.draw.line(globals.game.screen, color, (x * BLOCK_SIZE + BLOCK_SIZE, BLOCK_SIZE),
-                             (x * BLOCK_SIZE + BLOCK_SIZE, (len(self.maze[0]) + 1) * BLOCK_SIZE))
+        for x in range(self.maze.width + 1):
+            pygame.draw.line(globals.game.screen, color, (x * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE, BLOCK_PIXEL_SIZE),
+                             (x * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE, (self.maze.height + 1) * BLOCK_PIXEL_SIZE))
 
-        for y in range(len(self.maze[0]) + 1):
-            pygame.draw.line(globals.game.screen, color, (BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE),
-                             ((len(self.maze) + 1) * BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE))
+        for y in range(self.maze.height + 1):
+            pygame.draw.line(globals.game.screen, color, (BLOCK_PIXEL_SIZE, y * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE),
+                             ((self.maze.width + 1) * BLOCK_PIXEL_SIZE, y * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE))
+
+        super().draw()

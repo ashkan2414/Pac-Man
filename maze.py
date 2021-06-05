@@ -4,161 +4,185 @@ from settings import *
 from tools import *
 
 
-def generate_maze():
-    """
-    Generates and returns a pac-man maze
+class Maze:
 
-    Returns:
-        list: A generated maze
-    """
-    # Create empty 2D list to store maze
-    maze = [[MazeBlockType.EMPTY for y in range((HEIGHT_TILE_COUNT + 1) * TILE_SCALE_FACTOR)] for x in
-            range(int((WIDTH_TILE_COUNT // 2 + 1.5) * TILE_SCALE_FACTOR))]
+    def __init__(self):
+        self.maze = [[]]
+        self.width = 0
+        self.height = 0
+        self.n = 0
 
-    # Get the maze pieces
-    pieces = generate_pieces(WIDTH_TILE_COUNT // 2 + 1, HEIGHT_TILE_COUNT)
+    def __iter__(self):
+        self.n = 0
+        return self
 
-    # Set the first edge piece in the pieces list to an empty edge piece
-    for piece in pieces:
-        if piece.is_edge_piece(2):
-            piece.empty_edge_piece = True
-            break
+    def __next__(self):
+        if self.n <= self.width * self.height:
+            x = self.n // len(self.maze)
+            y = self.n % len(self.maze)
+            self.n += 1
+            return self.maze[x][y]
+        else:
+            raise StopIteration
 
-    # Insert each piece into maze
-    for piece in pieces:
-        piece.draw(maze)
+    def __getitem__(self, key):
+        return self.maze[key]
 
-    # Mirror the maze
-    for x in range(len(maze) - 1, -1, -1):
-        maze.append(maze[x])
+    def generate_maze(self):
+        """
+        Generates and returns a pac-man maze
 
-    # Return the generated maze
-    return maze
+        Returns:
+            list: A generated maze
+        """
+        # Create empty 2D list to store maze
+        self.maze = [[MazeBlockType.EMPTY for y in range((HEIGHT_TILE_COUNT + 1) * TILE_SCALE_FACTOR)] for x in
+                     range(int((WIDTH_TILE_COUNT // 2 + 1.5) * TILE_SCALE_FACTOR))]
 
+        # Get the maze pieces
+        pieces = Maze.generate_pieces(WIDTH_TILE_COUNT // 2 + 1, HEIGHT_TILE_COUNT)
 
-def generate_pieces(width, height):
-    """
-    Generates and returns maze pieces that fit together
-
-    Parameters:
-        width (int): The width of the maze in tiles
-        height (int): The height of the maze in tiles
-
-    Returns:
-        list: The list of maze pieces
-    """
-
-    # Create a list of points for each tile
-    unoccupied_tiles = [Point(x, y) for x in range(width) for y in range(height)]
-    # Empty list to hold the maze pieces
-    maze_pieces = []
-
-    center_piece = MazePiece([Point(3, 3), Point(3, 4), Point(4, 3), Point(4, 4)])
-    for point in center_piece.center_points:
-        unoccupied_tiles.remove(point)
-
-    # Generate a list of all possible piece presets
-    piece_presets = generate_piece_presets()
-
-    # Shuffle the presets and put the default 1 square preset shape at the end to reduce frequency
-    default_preset = piece_presets[0]
-    piece_presets.remove(default_preset)
-    random.shuffle(piece_presets)
-    piece_presets.append(default_preset)
-
-    # While there are still unoccupied_tiles
-    while unoccupied_tiles:
-
-        # Choose a random tile
-        current_tile_point = random.choice(unoccupied_tiles)
-        # For every preset
-        for preset in piece_presets:
-            fits = True
-            # Try putting the preset on the current tile with every single tile in the preset
-            for center_point in preset.center_points:
-                # Calculate displacement from selected point to current tile point
-                displacement = current_tile_point - center_point
-                # Deep copy the preset so it doesn't get modified when we translate it
-                copied_preset = deepcopy(preset)
-                # Translate the preset to the start point
-                copied_preset.translate(displacement)
-
-                fits = True
-                # For each point in the center points
-                for point in copied_preset.center_points:
-                    # If the point is out of bounds or is not occupied
-                    if point.x > width - 1 or point.x < 0 or point.y > height - 1 or point.y < 0 or point not in unoccupied_tiles:
-                        # Set fits to false and break
-                        fits = False
-                        break
-
-                # If the preset fits
-                if fits:
-                    # Add the preset to list of pieces and remove the occupied tiles from unoccupied list
-                    for point in copied_preset.center_points:
-                        if point in unoccupied_tiles:
-                            unoccupied_tiles.remove(point)
-                    maze_pieces.append(copied_preset)
-                    break
-
-            # If the preset fits, choose another random tile
-            if fits:
+        # Set the first edge piece in the pieces list to an empty edge piece
+        for piece in pieces:
+            if piece.is_edge_piece(2):
+                piece.empty_edge_piece = True
                 break
 
-    # Return the generated pieces
-    return maze_pieces
+        # Insert each piece into maze
+        for piece in pieces:
+            piece.draw(self.maze)
 
+        # Mirror the maze
+        for x in range(len(self.maze) - 1, -1, -1):
+            self.maze.append(self.maze[x])
 
-def generate_piece_presets():
-    """
-    Generates and returns a list of maze piece presets
+        self.width = len(self.maze)
+        self.height = len(self.maze[0])
 
-    Returns:
-        list: The list of maze piece presets
-    """
-    # Direction to vector translate dictionary
-    direction_vector_map = {"L": Vector(-1, 0), "R": Vector(1, 0), "U": Vector(0, 1), "D": Vector(0, -1)}
+    @staticmethod
+    def generate_pieces(width, height):
+        """
+        Generates and returns maze pieces that fit together
 
-    # Empty list to store the resulting presets
-    piece_presets = []
+        Parameters:
+            width (int): The width of the maze in tiles
+            height (int): The height of the maze in tiles
 
-    if os.path.exists(PIECE_PRESETS_FILE_PATH):
-        file = open(PIECE_PRESETS_FILE_PATH, "rb")
-        piece_presets = pickle.load(file)
+        Returns:
+            list: The list of maze pieces
+        """
 
-    else:
-        # For all the point paths in the shape presets
-        for paths in maze_piece_shape_presets:
-            points = {Point(0, 0)}  # List stores all the points for this piece shape preset
-            # For every path in the paths
-            for path in paths:
-                # Start at origin
-                point = Point(0, 0)
-                # For each direction in the path
-                for direction in path:
-                    # Add on the vector representation of the direction to the current point
-                    point += direction_vector_map.get(direction)
-                # Add the point to the list of points for this piece shape preset
-                points.add(point)
+        # Create a list of points for each tile
+        unoccupied_tiles = [Point(x, y) for x in range(width) for y in range(height)]
+        # Empty list to hold the maze pieces
+        maze_pieces = []
 
-            # Cycle through each rotation and generate all possible pieces for the shape preset
-            # i represents the number of 90 degree rotations applied
-            for i in range(4):
-                # Create a MazePiece object with the points
-                # Use deepcopy so that the pieces don't modify each others' points
-                piece_preset = MazePiece(deepcopy(list(points)))
-                # Rotate it around the current point with the current angle
-                piece_preset.rotate(i * 90, Point(0, 0))
-                # Add it to the list of piece presets if its not already in the list
-                if piece_preset not in piece_presets:
-                    piece_presets.append(piece_preset)
+        center_piece = MazePiece([Point(3, 3), Point(3, 4), Point(4, 3), Point(4, 4)])
+        for point in center_piece.center_points:
+            unoccupied_tiles.remove(point)
 
-        file = open(PIECE_PRESETS_FILE_PATH, "wb")
-        pickle.dump(piece_presets, file)
-        file.close()
+        # Generate a list of all possible piece presets
+        piece_presets = Maze.generate_piece_presets()
 
-    # Return all the piece presets
-    return piece_presets
+        # Shuffle the presets and put the default 1 square preset shape at the end to reduce frequency
+        default_preset = piece_presets[0]
+        piece_presets.remove(default_preset)
+        random.shuffle(piece_presets)
+        piece_presets.append(default_preset)
+
+        # While there are still unoccupied_tiles
+        while unoccupied_tiles:
+
+            # Choose a random tile
+            current_tile_point = random.choice(unoccupied_tiles)
+            # For every preset
+            for preset in piece_presets:
+                fits = True
+                # Try putting the preset on the current tile with every single tile in the preset
+                for center_point in preset.center_points:
+                    # Calculate displacement from selected point to current tile point
+                    displacement = current_tile_point - center_point
+                    # Deep copy the preset so it doesn't get modified when we translate it
+                    copied_preset = deepcopy(preset)
+                    # Translate the preset to the start point
+                    copied_preset.translate(displacement)
+
+                    fits = True
+                    # For each point in the center points
+                    for point in copied_preset.center_points:
+                        # If the point is out of bounds or is not occupied
+                        if point.x > width - 1 or point.x < 0 or point.y > height - 1 or point.y < 0 or point not in unoccupied_tiles:
+                            # Set fits to false and break
+                            fits = False
+                            break
+
+                    # If the preset fits
+                    if fits:
+                        # Add the preset to list of pieces and remove the occupied tiles from unoccupied list
+                        for point in copied_preset.center_points:
+                            if point in unoccupied_tiles:
+                                unoccupied_tiles.remove(point)
+                        maze_pieces.append(copied_preset)
+                        break
+
+                # If the preset fits, choose another random tile
+                if fits:
+                    break
+
+        # Return the generated pieces
+        return maze_pieces
+
+    @staticmethod
+    def generate_piece_presets():
+        """
+        Generates and returns a list of maze piece presets
+
+        Returns:
+            list: The list of maze piece presets
+        """
+        # Direction to vector translate dictionary
+        direction_vector_map = {"L": Vector(-1, 0), "R": Vector(1, 0), "U": Vector(0, 1), "D": Vector(0, -1)}
+
+        # Empty list to store the resulting presets
+        piece_presets = []
+
+        if os.path.exists(PIECE_PRESETS_FILE_PATH):
+            file = open(PIECE_PRESETS_FILE_PATH, "rb")
+            piece_presets = pickle.load(file)
+
+        else:
+            # For all the point paths in the shape presets
+            for paths in maze_piece_shape_presets:
+                points = {Point(0, 0)}  # List stores all the points for this piece shape preset
+                # For every path in the paths
+                for path in paths:
+                    # Start at origin
+                    point = Point(0, 0)
+                    # For each direction in the path
+                    for direction in path:
+                        # Add on the vector representation of the direction to the current point
+                        point += direction_vector_map.get(direction)
+                    # Add the point to the list of points for this piece shape preset
+                    points.add(point)
+
+                # Cycle through each rotation and generate all possible pieces for the shape preset
+                # i represents the number of 90 degree rotations applied
+                for i in range(4):
+                    # Create a MazePiece object with the points
+                    # Use deepcopy so that the pieces don't modify each others' points
+                    piece_preset = MazePiece(deepcopy(list(points)))
+                    # Rotate it around the current point with the current angle
+                    piece_preset.rotate(i * 90, Point(0, 0))
+                    # Add it to the list of piece presets if its not already in the list
+                    if piece_preset not in piece_presets:
+                        piece_presets.append(piece_preset)
+
+            file = open(PIECE_PRESETS_FILE_PATH, "wb")
+            pickle.dump(piece_presets, file)
+            file.close()
+
+        # Return all the piece presets
+        return piece_presets
 
 
 def get_surrounding_blocks(point):
