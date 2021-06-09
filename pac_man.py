@@ -4,23 +4,24 @@ from game_state import *
 pygame.init()
 
 
-class PACMAN (GameComponent):
+class PACMAN(GameComponent):
 
-    def __init__(self):
-        super().__init__()
-        self.screen = pygame.display.set_mode(START_SIZE, pygame.RESIZABLE)
+    def __init__(self, bounds):
+        super().__init__(bounds)
+        self.screen = pygame.display.set_mode(bounds.size(), pygame.RESIZABLE)
         self.clock = pygame.time.Clock()
         self.running = True
 
         globals.game = self
+        globals.size = bounds.size()
 
-        self.states = {globals.GameStateType.START_MENU: StartMenu(),
-                       globals.GameStateType.SETTING_MENU: SettingMenu(),
-                       globals.GameStateType.GAME_MENU: GameMenu()}
+        self.states = {globals.GameStateType.START_MENU: StartMenu(bounds),
+                       globals.GameStateType.SETTING_MENU: SettingMenu(bounds),
+                       globals.GameStateType.GAME_MENU: GameMenu(bounds)}
 
         self.current_state = None
         self.set_game_state(globals.GameStateType.GAME_MENU)
-        globals.size = START_SIZE
+
 
     def run(self):
         while self.running:

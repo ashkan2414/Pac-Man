@@ -192,6 +192,10 @@ class Point:
         return Vector(self.x, self.y)
 
     @staticmethod
+    def rounded(point):
+        return Point(int(round(point.x)), int(round(point.y)))
+
+    @staticmethod
     def rotate_point(point, angle, axis):
         """
         Returns a resultant point rotated around another point axis
@@ -246,7 +250,6 @@ class Point:
 
 
 class Vector(Point):
-
     """
     Stores information about a vector and provides methods to interact with vectors
 
@@ -372,3 +375,15 @@ class Vector(Point):
             int, float: The angle between the vectors
         """
         return math.degrees(math.atan2(vector2.x - vector1.x, vector2.y - vector1.y))
+
+
+class Bounds:
+
+    def __init__(self, x, y, width, height):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+
+    def size(self):
+        return self.width, self.height

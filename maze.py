@@ -2,11 +2,14 @@ import random, os, pickle
 from copy import deepcopy
 from settings import *
 from tools import *
+from game_component import *
+import globals
 
 
-class Maze:
+class Maze(GameComponent):
 
-    def __init__(self):
+    def __init__(self, bounds):
+        super().__init__(bounds)
         self.maze = [[]]
         self.width = 0
         self.height = 0
@@ -27,6 +30,25 @@ class Maze:
 
     def __getitem__(self, key):
         return self.maze[key]
+
+    def draw(self):
+        for x in range(self.width):
+            for y in range(self.height):
+
+                block_type = self.maze[x][y]
+                if block_type == MazeBlockType.WALL:
+                    color = (10, 10, 10)
+                elif block_type == MazeBlockType.PATH:
+                    color = (65, 65, 65)
+                else:
+                    color = WHITE
+
+                pygame.draw.rect(globals.game.screen, color,
+                                 (x * BLOCK_PIXEL_SIZE + self.bounds.x, y * BLOCK_PIXEL_SIZE + self.bounds.y,
+                                  BLOCK_PIXEL_SIZE, BLOCK_PIXEL_SIZE))
+
+    def point(self, point):
+        return self.maze[point.x][point.y]
 
     def generate_maze(self):
         """
@@ -185,7 +207,7 @@ class Maze:
         return piece_presets
 
 
-def get_surrounding_blocks(point):
+def get_neighbour_points(point):
     """
     Returns the surrounding blocks of a point
 
@@ -200,6 +222,7 @@ def get_surrounding_blocks(point):
     for x in range(3):
         for y in range(3):
             points.append(point + Point(x - 1, y - 1))
+    points.remove(point)
     return points
 
 
@@ -383,7 +406,7 @@ class MazePiece:
                             maze[0]) - TILE_SCALE_FACTOR // 2 - 1):
                         maze[x][y] = MazeBlockType.PATH
                         # Set all the empty blocks around this current path block to walls
-                        for block in get_surrounding_blocks(Point(x, y)):
+                        for block in get_neighbour_points(Point(x, y)):
                             if 0 <= block.x < len(maze) and 0 <= block.y < len(maze[0]):
                                 if maze[block.x][block.y] == MazeBlockType.EMPTY:
                                     maze[block.x][block.y] = MazeBlockType.WALL

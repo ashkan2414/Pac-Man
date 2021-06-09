@@ -1,20 +1,20 @@
 import globals
 from game_component import GameComponent
 from maze import *
-from player import *
+from entity import *
 
 
 class GameState(GameComponent):
 
-    def __init__(self, state_type):
-        super().__init__()
+    def __init__(self, bounds, state_type):
+        super().__init__(bounds)
         self.type = state_type
 
 
 class StartMenu(GameState):
 
-    def __init__(self):
-        super().__init__(globals.GameStateType.START_MENU)
+    def __init__(self, bounds):
+        super().__init__(bounds, globals.GameStateType.START_MENU)
 
     def process_events(self, event):
         if event.type == pygame.KEYDOWN:
@@ -24,41 +24,47 @@ class StartMenu(GameState):
         super().process_events(event)
 
     def draw(self):
-        GUITools.draw_text("PAC-MAN", globals.game.screen, [globals.size[0] // 2, 100],
-                           FONT, HEADER_SIZE, (170, 130, 60))
-
         super().draw()
 
 
 class SettingMenu(GameState):
 
-    def __init__(self):
-        super().__init__(globals.GameStateType.SETTING_MENU)
+    def __init__(self, bounds):
+        super().__init__(bounds, globals.GameStateType.SETTING_MENU)
 
 
 class GameMenu(GameState):
 
-    def __init__(self):
-        super().__init__(globals.GameStateType.GAME_MENU)
-        self.maze = Maze()
+    def __init__(self, bounds):
+        super().__init__(bounds, globals.GameStateType.GAME_MENU)
 
-        self.player = Player(PAC_MAN_SPEED, None)
+        maze_bounds = Bounds(bounds.x + BLOCK_PIXEL_SIZE, bounds.y + BLOCK_PIXEL_SIZE, 0, 0)
+        maze_bounds.width = globals.size[0] - maze_bounds.x
+        maze_bounds.height = globals.size[1] - maze_bounds.y
+
+        self.maze = Maze(maze_bounds)
+        self.child_game_components.append(self.maze)
+        self.player = Player(maze_bounds, PAC_MAN_SPEED, None)
         self.child_game_components.append(self.player)
+        self.enemy = Enemy(maze_bounds, 5, None)
+        self.child_game_components.append(self.enemy)
 
     def start(self):
         self.maze.generate_maze()
 
-        path_found = False
+        x = random.randrange(0, self.maze.width - 1)
+        y = random.randrange(0, self.maze.height - 1)
+        while self.maze[x][y] != MazeBlockType.PATH:
+            x = random.randrange(0, self.maze.width - 1)
+            y = random.randrange(0, self.maze.height - 1)
+        self.player.set_start_location(Point(x, y))
 
-        for x in range(self.maze.width):
-            for y in range(self.maze.height):
-                if self.maze[x][y] == MazeBlockType.PATH:
-                    self.player.set_start_location(Point(x, y))
-                    path_found = True
-                    break
-
-            if path_found:
-                break
+        x = random.randrange(0, self.maze.width - 1)
+        y = random.randrange(0, self.maze.height - 1)
+        while self.maze[x][y] != MazeBlockType.PATH:
+            x = random.randrange(0, self.maze.width - 1)
+            y = random.randrange(0, self.maze.height - 1)
+        self.enemy.set_start_location(Point(x, y))
 
         super().start()
 
@@ -72,28 +78,5 @@ class GameMenu(GameState):
 
     def draw(self):
         globals.game.screen.fill(WHITE)
-        for x in range(self.maze.width):
-            for y in range(self.maze.height):
-
-                block_type = self.maze[x][y]
-                if block_type == MazeBlockType.WALL:
-                    color = (10, 10, 10)
-                elif block_type == MazeBlockType.PATH:
-                    color = (65, 65, 65)
-                else:
-                    color = WHITE
-
-                pygame.draw.rect(globals.game.screen, color,
-                                 (x * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE, y * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE,
-                                  BLOCK_PIXEL_SIZE, BLOCK_PIXEL_SIZE))
-
-        color = (100, 100, 100)
-        for x in range(self.maze.width + 1):
-            pygame.draw.line(globals.game.screen, color, (x * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE, BLOCK_PIXEL_SIZE),
-                             (x * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE, (self.maze.height + 1) * BLOCK_PIXEL_SIZE))
-
-        for y in range(self.maze.height + 1):
-            pygame.draw.line(globals.game.screen, color, (BLOCK_PIXEL_SIZE, y * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE),
-                             ((self.maze.width + 1) * BLOCK_PIXEL_SIZE, y * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE))
 
         super().draw()

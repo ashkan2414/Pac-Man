@@ -1,7 +1,11 @@
+import pygame
+
+
 class GameComponent:
 
-    def __init__(self):
+    def __init__(self, bounds):
         self.child_game_components = []
+        self.bounds = bounds
 
     def start(self):
         for component in self.child_game_components:
