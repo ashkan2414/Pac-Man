@@ -16,7 +16,6 @@ class GUITools:
 
         screen.blit(text, pos)
 
-
 class Point:
     """
     Holds information about a point on a cartesian grid and provides methods to interact with points
@@ -385,5 +384,11 @@ class Bounds:
         self.width = width
         self.height = height
 
+    def __str__(self):
+        return str((self.x, self.y, self.width, self.height))
+
     def size(self):
         return self.width, self.height
+
+    def position(self):
+        return self.x, self.y

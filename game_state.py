@@ -6,47 +6,38 @@ from entity import *
 
 class GameState(GameComponent):
 
-    def __init__(self, bounds, state_type):
-        super().__init__(bounds)
+    def __init__(self, parent, scale, state_type):
+        super().__init__(parent, scale)
         self.type = state_type
 
 
 class StartMenu(GameState):
 
-    def __init__(self, bounds):
-        super().__init__(bounds, globals.GameStateType.START_MENU)
-
-    def process_events(self, event):
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                globals.game.set_game_state(globals.GameStateType.GAME_MENU)
-
-        super().process_events(event)
-
-    def draw(self):
-        super().draw()
+    def __init__(self, parent, scale):
+        super().__init__(parent, scale, globals.GameStateType.START_MENU)
 
 
 class SettingMenu(GameState):
 
-    def __init__(self, bounds):
-        super().__init__(bounds, globals.GameStateType.SETTING_MENU)
+    def __init__(self, parent, scale):
+        super().__init__(parent, scale, globals.GameStateType.SETTING_MENU)
 
 
 class GameMenu(GameState):
 
-    def __init__(self, bounds):
-        super().__init__(bounds, globals.GameStateType.GAME_MENU)
+    def __init__(self, parent, scale):
+        super().__init__(parent, scale, globals.GameStateType.GAME_MENU)
 
-        maze_bounds = Bounds(bounds.x + BLOCK_PIXEL_SIZE, bounds.y + BLOCK_PIXEL_SIZE, 0, 0)
-        maze_bounds.width = globals.size[0] - maze_bounds.x
-        maze_bounds.height = globals.size[1] - maze_bounds.y
+        maze_scale = Bounds(0.5, 0.56, 0.96, 0)
+        maze_scale.height = maze_scale.width * ASPECT_RATIO * (30/32)
 
-        self.maze = Maze(maze_bounds)
+        print(maze_scale)
+
+        self.maze = Maze(self, maze_scale)
         self.child_game_components.append(self.maze)
-        self.player = Player(maze_bounds, PAC_MAN_SPEED, None)
+        self.player = Player(self, maze_scale, PAC_MAN_SPEED, None)
         self.child_game_components.append(self.player)
-        self.enemy = Enemy(maze_bounds, 5, None)
+        self.enemy = Enemy(self, maze_scale, GHOST_SPEED, None)
         self.child_game_components.append(self.enemy)
 
     def start(self):
@@ -68,15 +59,6 @@ class GameMenu(GameState):
 
         super().start()
 
-    def process_events(self, event):
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                pass
-                # self.maze = generate_maze()
-
-        super().process_events(event)
-
     def draw(self):
-        globals.game.screen.fill(WHITE)
-
+        self.surface.fill(BLACK)
         super().draw()

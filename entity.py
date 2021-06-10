@@ -8,10 +8,9 @@ from settings import *
 
 class Entity(GameComponent):
 
-    def __init__(self, bounds, speed, animation):
-        super().__init__(bounds)
+    def __init__(self, parent, scale, speed, animation):
+        super().__init__(parent, scale)
         self.speed = speed
-        self.animator = Animator(bounds, animation)
         self.location = Point(0, 0)
         self.target_location = Point(0, 0)
         self.direction = Vector(0, 0)
@@ -22,7 +21,7 @@ class Entity(GameComponent):
         self.target_location = start_location
 
     def start(self):
-        self.maze = globals.game.states.get(globals.GameStateType.GAME_MENU).maze
+        self.maze = self.parent.maze
         super().start()
 
     def update(self):
@@ -32,12 +31,10 @@ class Entity(GameComponent):
 
 class Player(Entity):
 
-    def __init__(self, bounds, speed, animation):
-        super().__init__(bounds, speed, animation)
+    def __init__(self, parent, scale, speed, animation):
+        super().__init__(parent, scale, speed, animation)
         self.points = 0
         self.next_direction = Vector(0, 0)
-        print(globals.size)
-        self.surface = pygame.Surface((self.bounds.width, self.bounds.height), flags=pygame.SRCALPHA)
 
     def start(self):
         self.points = 0
@@ -76,22 +73,23 @@ class Player(Entity):
         super().update()
 
     def draw(self):
-        self.surface.fill((255, 255, 255, 0))
+        self.surface.fill(EMPTY)
         pygame.draw.circle(self.surface, (255, 255, 0),
-                           (self.location.x * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE // 2,
-                            self.location.y * BLOCK_PIXEL_SIZE + BLOCK_PIXEL_SIZE // 2),
-                           BLOCK_PIXEL_SIZE // 2)
-        globals.game.screen.blit(self.surface, (self.bounds.x, self.bounds.y))
+                           (self.location.x * self.maze.block_pixel_size + self.maze.block_pixel_size // 2,
+                            self.location.y * self.maze.block_pixel_size + self.maze.block_pixel_size // 2),
+                           self.maze.block_pixel_size // 2)
+
+        super().draw()
 
 
 class Enemy(Entity):
 
-    def __init__(self, bounds, speed, animation):
-        super().__init__(bounds, speed, animation)
+    def __init__(self, parent, scale, speed, animation):
+        super().__init__(parent, scale, speed, animation)
         self.player = None
 
     def start(self):
-        self.player = globals.game.states.get(globals.GameStateType.GAME_MENU).player
+        self.player = self.parent.player
         super().start()
 
     def update(self):
@@ -108,9 +106,12 @@ class Enemy(Entity):
         super().update()
 
     def draw(self):
-        pygame.draw.circle(globals.game.screen, (255, 0, 0),
-                           (self.location.x * BLOCK_PIXEL_SIZE + int(BLOCK_PIXEL_SIZE * 1.5),
-                            self.location.y * BLOCK_PIXEL_SIZE + int(BLOCK_PIXEL_SIZE * 1.5)), BLOCK_PIXEL_SIZE // 2)
+        self.surface.fill(EMPTY)
+        pygame.draw.circle(self.surface, (255, 0, 0),
+                           (self.location.x * self.maze.block_pixel_size + self.maze.block_pixel_size // 2,
+                            self.location.y * self.maze.block_pixel_size + self.maze.block_pixel_size // 2),
+                           self.maze.block_pixel_size // 2)
+        super().draw()
 
     def get_path(self, target):
         open_nodes = [ASNode(self.location, 0, Point.distance(self.location, target))]
@@ -178,11 +179,10 @@ class ASNode:
         return str(self.location)
 
     def neighbours(self):
-        neighbour_nodes = []
-        neighbour_nodes.append(ASNode(self.location - Point(1, 0), self.g + 1, 0, self))
-        neighbour_nodes.append(ASNode(self.location - Point(-1, 0), self.g + 1, 0, self))
-        neighbour_nodes.append(ASNode(self.location - Point(0, 1), self.g + 1, 0, self))
-        neighbour_nodes.append(ASNode(self.location - Point(0, -1), self.g + 1, 0, self))
+        neighbour_nodes = [ASNode(self.location - Point(1, 0), self.g + 1, 0, self),
+                           ASNode(self.location - Point(-1, 0), self.g + 1, 0, self),
+                           ASNode(self.location - Point(0, 1), self.g + 1, 0, self),
+                           ASNode(self.location - Point(0, -1), self.g + 1, 0, self)]
         return neighbour_nodes
 
     def calculate_h(self, target_location):
@@ -194,8 +194,8 @@ class ASNode:
 
 class Animator(GameComponent):
 
-    def __init__(self, bounds, animation):
-        super().__init__(bounds)
+    def __init__(self, parent, scale, animation):
+        super().__init__(parent, scale)
         self.animation = animation
         self.current_frame = 0
         self.current_time = 0
