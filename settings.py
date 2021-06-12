@@ -1,4 +1,6 @@
-ASPECT_RATIO = 16 / 17
+from globals import GhostAIState
+
+ASPECT_RATIO = 17 / 17
 START_SIZE = (1000, int(1000 // ASPECT_RATIO))
 MIN_SIZE = (400, int(400 // ASPECT_RATIO))
 FPS = 144
@@ -11,7 +13,7 @@ CENTER_PIECE_HEIGHT = 2
 
 TILE_SCALE_FACTOR = 3
 
-WALL_THICKNESS_FACTOR = 0.4
+WALL_THICKNESS_FACTOR = 0.2
 
 PIECE_PRESETS_FILE_PATH = "piece_presets.pickle"
 maze_piece_shape_presets = [
@@ -30,6 +32,8 @@ maze_piece_shape_presets = [
 PAC_MAN_SPEED = 5
 GHOST_SPEED = 3
 
+GHOST_START_STATE = GhostAIState.SCATTER
+GHOST_STATE_SCHEDULE = (15, 15, 15, 15, 15, 15)
 
 EMPTY = (0, 0, 0, 0)
 WHITE = (255, 255, 255)
@@ -40,6 +44,8 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
 PURPLE = (255, 0, 255)
+ORANGE = (255, 165, 0)
+PINK = (255, 192, 203)
 
 MAZE_WALL_COLOUR = (0, 0, 240)
 MAZE_PATH_COLOR = (0, 0, 0)

@@ -41,8 +41,8 @@ class GameComponent:
     def on_scale(self, container_bounds):
         self.bounds.width = container_bounds.width * self.scale.width
         self.bounds.height = container_bounds.height * self.scale.height
-        self.bounds.x = (container_bounds.x + container_bounds.width) * self.scale.x - self.bounds.width // 2
-        self.bounds.y = (container_bounds.y + container_bounds.height) * self.scale.y - self.bounds.height // 2
+        self.bounds.x = (container_bounds.x + container_bounds.width) * self.scale.x - self.bounds.width / 2
+        self.bounds.y = (container_bounds.y + container_bounds.height) * self.scale.y - self.bounds.height / 2
 
         self.surface = pygame.Surface(self.bounds.size(), flags=pygame.SRCALPHA)
 

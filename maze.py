@@ -17,6 +17,7 @@ class Maze(GameComponent):
         self.ratio = 0
         self.n = 0
         self.block_pixel_size = 0
+        self.respawn_point = Point(0, 0)
 
     def __iter__(self):
         self.n = 0
@@ -39,7 +40,6 @@ class Maze(GameComponent):
 
         for x in range(self.width):
             for y in range(self.height):
-
                 block_type = self.maze[x][y]
                 if block_type == MazeBlockType.WALL:
                     self.draw_wall(Point(x, y))
@@ -52,6 +52,13 @@ class Maze(GameComponent):
                     pygame.draw.rect(self.surface, color,
                                      (x * self.block_pixel_size, y * self.block_pixel_size,
                                       self.block_pixel_size, self.block_pixel_size))
+
+        for x in range(self.width + 1):
+            pygame.draw.line(self.surface, WHITE, (x * self.block_pixel_size, 0),
+                             (x * self.block_pixel_size, self.height * self.block_pixel_size))
+        for y in range(self.height + 1):
+            pygame.draw.line(self.surface, WHITE, (0, y * self.block_pixel_size),
+                             (self.width * self.block_pixel_size, y * self.block_pixel_size))
 
         super().draw()
 
@@ -115,6 +122,17 @@ class Maze(GameComponent):
                     p1 = center + Point(0, self.block_pixel_size // 2)
                     p2 = center + Point(-self.block_pixel_size // 2, 0)
 
+            elif path_count == 7:
+                p1 = center
+                if neighbours.get("B") == MazeBlockType.WALL:
+                    p2 = center + Point(0, self.block_pixel_size // 2)
+                elif neighbours.get("R") == MazeBlockType.WALL:
+                    p2 = center + Point(self.block_pixel_size // 2, 0)
+                elif neighbours.get("T") == MazeBlockType.WALL:
+                    p2 = center + Point(0, -self.block_pixel_size // 2)
+                elif neighbours.get("L") == MazeBlockType.WALL:
+                    p2 = center + Point(-self.block_pixel_size // 2, 0)
+
             pygame.draw.line(self.surface, MAZE_WALL_COLOUR, (center.x, center.y), (p1.x, p1.y), line_width)
             pygame.draw.line(self.surface, MAZE_WALL_COLOUR, (center.x, center.y), (p2.x, p2.y), line_width)
 
@@ -149,7 +167,7 @@ class Maze(GameComponent):
         """
         # Create empty 2D list to store maze
         self.maze = [[MazeBlockType.EMPTY for y in range((HEIGHT_TILE_COUNT + 1) * TILE_SCALE_FACTOR)] for x in
-                     range(int((WIDTH_TILE_COUNT // 2 + 1.5) * TILE_SCALE_FACTOR))]
+                     range(int((WIDTH_TILE_COUNT // 2 + 1) * TILE_SCALE_FACTOR + 1))]
 
         # Get the maze pieces
         pieces = Maze.generate_pieces(WIDTH_TILE_COUNT // 2 + 1, HEIGHT_TILE_COUNT)
@@ -165,12 +183,13 @@ class Maze(GameComponent):
             piece.draw(self.maze)
 
         # Mirror the maze
-        for x in range(len(self.maze) - 1, -1, -1):
+        for x in range(len(self.maze) - 3, -1, -1):
             self.maze.append(self.maze[x])
 
         self.width = len(self.maze)
         self.height = len(self.maze[0])
         self.ratio = self.width / self.height
+        self.respawn_point = Point(self.width // 2, self.height // 2)
 
     @staticmethod
     def generate_pieces(width, height):

@@ -1,128 +1,253 @@
-import pygame
 import math
+import pygame
+
+a = pygame.math.Vector2(5, 6)
 
 
-class GUITools:
+class CartesianObject:
+    """
+    Holds information about a geometric object on a cartesian grid and provides methods to interact with them
+
+    ...
+
+    Attributes:
+    -----------
+    x (int, float): The x coordinate of the cartesian object
+    y (int, float): The y coordinate of the cartesian object
+
+    Methods:
+    --------
+    def rotate(self, angle, axis):
+        Rotates this cartesian object around an axis cartesian object
+
+    def round(self):
+        Rounds the coordinates of the cartesian object
+
+    def translate(self, displacement):
+        Translates the cartesian object with a displacement
 
     @staticmethod
-    def draw_text(text, screen, pos, font, size, colour):
-        font = pygame.font.SysFont(font, size)
+    def distance(object1, object2):
+        Returns the distance between two cartesian objects
 
-        text = font.render(text, False, colour)
-        text_size = text.get_size()
+    @staticmethod
+    def rounded(point):
+        Returns a rounded version of the cartesian object
 
-        pos[0] = pos[0] - text_size[0] // 2
-        pos[1] = pos[1] - text_size[1] // 2
-
-        screen.blit(text, pos)
-
-class Point:
-    """
-    Holds information about a point on a cartesian grid and provides methods to interact with points
+    @staticmethod
+    def rotated(cartesian_object, angle, axis):
+        Returns a resultant cartesian object rotated around another cartesian object axis
     """
 
     def __init__(self, x, y):
+        """
+        Returns a cartesian object
+        """
         self.x = x
         self.y = y
 
     def __str__(self):
         """
-        Returns the string representation of the point as coordinates
+        Returns the string representation of the cartesian object
 
         Returns:
-            string: The string representation of the point
+            string: The string representation
         """
         return "(" + str(self.x) + ", " + str(self.y) + ")"
 
     def __repr__(self):
         """
-        Returns the string representation of the point as coordinates
+        Returns the string representation of the coordinates
 
         Returns:
-            string: The string representation of the point
+            string: The string representation
         """
         return self.__str__()
 
     def __hash__(self):
         """
-        Returns the hash of the point
+        Returns the hash of the cartesian object
 
         Returns:
-            int: The hash of the point
+            int: The hash of the cartesian object
         """
         return hash((self.x, self.y))
 
     def __add__(self, other):
         """
-        Returns the addition of this point and another point
+        Returns the addition of this cartesian object and another cartesian object
 
         Parameters:
-            other (Point): The other point
+            other (CartesianObject): The other cartesian object
 
         Returns:
-            Point: The addition of this point and another point
+            CartesianObject: The addition of this cartesian object and another cartesian object
         """
-        return Point(self.x + other.x, self.y + other.y)
+        return self.__class__(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other):
         """
-        Returns the subtraction of this point and another point
+        Returns the subtraction of this cartesian object and another cartesian object
 
         Parameters:
-            other (Point): The other point
+            other (CartesianObject): The other cartesian object
 
         Returns:
-            Point: The subtraction of this point and another point
+            CartesianObject: The subtraction of this cartesian object and another cartesian object
         """
-        return Point(self.x - other.x, self.y - other.y)
+        return self.__class__(self.x - other.x, self.y - other.y)
 
     def __truediv__(self, value):
         """
-        Returns this point divided by a scalar value
+        Returns this cartesian object divided by a scalar value
 
         Parameters:
             value (int, float): The scalar value to divide by
 
         Returns:
-            Point: The point divided by a scalar value
+            Point: The cartesian object divided by a scalar value
         """
-        return Point(self.x / value, self.y / value)
+        return self.__class__(self.x / value, self.y / value)
 
     def __mul__(self, value):
         """
-        Returns this point multiplied by a scalar value
+        Returns this cartesian object multiplied by a scalar value
 
         Parameters:
             value (int, float): The scalar value to multiply by
 
         Returns:
-            Point: The point multiplied by a scalar value
+            Point: The cartesian object multiplied by a scalar value
         """
-        return Point(self.x * value, self.y * value)
+        return self.__class__(self.x * value, self.y * value)
 
     def __eq__(self, other):
         """
-        Returns whether this point is equal to another point
+        Returns whether this cartesian object is equal to another cartesian object
 
         Parameters:
-            other (Point): The other to point to compare to
+            other (CartesianObject): The other cartesian object to compare to
 
         Returns:
-            bool: Whether this point is equal to another point
+            bool: Whether this cartesian object is equal to another cartesian object
         """
         return self.x == other.x and self.y == other.y
 
     def __ne__(self, other):
         """
-        Returns whether this point is not equal to another point
+        Returns whether this cartesian object is not equal to another one
 
         Parameters:
-            other (Point): The other to point to compare to
+            other (CartesianObject): The other to cartesian object to compare to
 
         Returns:
-            bool: Whether this point is not equal to another point
+            bool: Whether this cartesian object is not equal to another cartesian object
         """
         return not (self == other)
+
+    def rotate(self, angle, axis):
+        """
+        Rotates this cartesian object around an axis cartesian object
+
+        Parameters:
+            angle (int, float): The angle to rotate in degrees
+            axis (CartesianObject): The cartesian object to rotate around
+        """
+        # Get rotated cartesian object
+        result = CartesianObject.rotated(self, angle, axis)
+        # Modify attributes to the result
+        self.x = result.x
+        self.y = result.y
+
+    def round(self):
+        """
+        Rounds the coordinates of the cartesian object
+        """
+        self.x = int(round(self.x))
+        self.y = int(round(self.y))
+
+    def translate(self, displacement):
+        """
+        Translates the cartesian object with a displacement
+
+        Parameters:
+            displacement (CartesianObject): The displacement to translate the cartesian object with
+        """
+        self.x += displacement.x
+        self.y += displacement.y
+
+    @staticmethod
+    def distance(object1, object2):
+        """
+        Returns the distance between two cartesian objects
+
+        Parameters:
+            object1 (CartesianObject): The first cartesian object
+            object2 (CartesianObject): The second cartesian object
+
+        Returns:
+            int, float: The distance between the cartesian objects
+        """
+        return ((object2.x - object1.x) ** 2 + (object2.y - object1.y) ** 2) ** 0.5
+
+    @staticmethod
+    def rounded(point):
+        """
+        Returns a rounded version of the cartesian object
+
+        Parameters:
+            cartesian object (Point): The cartesian object to round
+
+        Returns:
+            Point: A rounded version of the cartesian object
+        """
+        return Point(int(round(point.x)), int(round(point.y)))
+
+    @staticmethod
+    def rotated(cartesian_object, angle, axis):
+        """
+        Returns a resultant cartesian object rotated around another cartesian object axis
+
+        Parameters:
+            cartesian_object (CartesianObject): The cartesian object to rotate
+            angle (int, float): The angle to rotate in degrees
+            axis (CartesianObject): The cartesian object to rotate around
+
+        Returns:
+            CartesianObject: The rotated cartesian object
+        """
+        # Calculate current angle
+        current_angle = math.atan2(cartesian_object.x - axis.x, cartesian_object.y - axis.y)
+        # Calculate target angle
+        target_angle = math.radians(angle) + current_angle
+        # Get the distance between axis and the cartesian object
+        distance = CartesianObject.distance(cartesian_object, axis)
+        # Create a cartesian object at target angle with distance from axis and return it
+        return cartesian_object.__class__(math.sin(target_angle), math.cos(target_angle)) * distance + axis
+
+
+class Point(CartesianObject):
+    """
+    Holds information about a geometric point on a cartesian grid and provides methods to interact with them
+
+    ...
+
+    Methods:
+    --------
+    def is_grid_collinear(self, other):
+        Returns whether this point is collinear with another point on the cartesian grid lines
+
+    def vector(self):
+        Returns this point as a vector
+
+    @staticmethod
+    def left_most(points):
+        Returns the left most lowest point in a set of points
+
+    Parent (CartesianObject):
+    """
+
+    __doc__ += CartesianObject.__doc__
 
     def is_grid_collinear(self, other):
         """
@@ -136,51 +261,6 @@ class Point:
         """
         return self.x == other.x or self.y == other.y
 
-    @staticmethod
-    def distance(point1, point2):
-        """
-        Returns the distance between two points
-
-        Parameters:
-            point1 (Point): The first point
-            point2 (Point): The second point
-
-        Returns:
-            int, float: The distance between the points
-        """
-        return ((point2.x - point1.x) ** 2 + (point2.y - point1.y) ** 2) ** 0.5
-
-    def rotate(self, angle, axis):
-        """
-        Rotates this point around an axis point
-
-        Parameters:
-            angle (int, float): The angle to rotate in degrees
-            axis (Point): The point to rotate around
-        """
-        # Get rotated point
-        result = Point.rotate_point(self, angle, axis)
-        # Modify attributes to the result
-        self.x = result.x
-        self.y = result.y
-
-    def round(self):
-        """
-        Rounds the coordinates of the point
-        """
-        self.x = int(round(self.x))
-        self.y = int(round(self.y))
-
-    def translate(self, displacement):
-        """
-        Translates the point with a displacement
-
-        Parameters:
-            displacement (Point, Vector): The displacement to translate the point with
-        """
-        self.x += displacement.x
-        self.y += displacement.y
-
     def vector(self):
         """
         Returns this point as a vector
@@ -191,34 +271,7 @@ class Point:
         return Vector(self.x, self.y)
 
     @staticmethod
-    def rounded(point):
-        return Point(int(round(point.x)), int(round(point.y)))
-
-    @staticmethod
-    def rotate_point(point, angle, axis):
-        """
-        Returns a resultant point rotated around another point axis
-
-        Parameters:
-            point (Point): The point to rotate
-            angle (int, float): The angle to rotate in degrees
-            axis (Point): The point to rotate around
-
-        Returns:
-            Point: The rotated point
-        """
-        # Calculate current angle
-        current_angle = math.atan2(point.x - axis.x, point.y - axis.y)
-        # Calculate target angle
-        target_angle = math.radians(angle) + current_angle
-        # Get the distance between axis and the point
-        distance = Point.distance(point, axis)
-        # Create a point at target angle with distance from axis and return it
-        return Point(math.sin(target_angle), math.cos(target_angle)) * distance + axis
-
-    @staticmethod
     def left_most(points):
-
         """
         Returns the left most lowest point in a set of points
 
@@ -248,7 +301,7 @@ class Point:
         return result
 
 
-class Vector(Point):
+class Vector(CartesianObject):
     """
     Stores information about a vector and provides methods to interact with vectors
 
@@ -269,58 +322,10 @@ class Vector(Point):
     def angle(vector1, vector2):
         Returns the angle between two vectors
 
-    Parent (Point):
+    CartesianObject (Point):
     """
 
-    __doc__ += Point.__doc__
-
-    def __add__(self, other):
-        """
-        Returns the addition of this vector and another vector
-
-        Parameters:
-            other (Vector): The other vector
-
-        Returns:
-            Vector: The addition of this vector and another vector
-        """
-        return super().__add__(other).vector()
-
-    def __sub__(self, other):
-        """
-        Returns the subtraction of this vector and another vector
-
-        Parameters:
-            other (Vector): The other vector
-
-        Returns:
-            Vector: The subtraction of this vector and another vector
-        """
-        return super().__add__(other).vector()
-
-    def __truediv__(self, value):
-        """
-        Returns this vector divided by a scalar value
-
-        Parameters:
-            value (int, float): The scalar value to divide by
-
-        Returns:
-            Vector: The vector divided by a scalar value
-        """
-        return super().__truediv__(value).vector()
-
-    def __mul__(self, value):
-        """
-        Returns this vector multiplied by a scalar value
-
-        Parameters:
-            value (int, float): The scalar value to multiply by
-
-        Returns:
-            Vector: The vector multiplied by a scalar value
-        """
-        return super().__mul__(value).vector()
+    __doc__ += CartesianObject.__doc__
 
     def magnitude(self):
         """
@@ -376,16 +381,13 @@ class Vector(Point):
         return math.degrees(math.atan2(vector2.x - vector1.x, vector2.y - vector1.y))
 
 
-class Bounds:
+class Bounds():
 
     def __init__(self, x, y, width, height):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-
-    def __str__(self):
-        return str((self.x, self.y, self.width, self.height))
 
     def size(self):
         return self.width, self.height
