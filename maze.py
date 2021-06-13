@@ -1,10 +1,11 @@
 import os
 import pickle
 import random
-from copy import deepcopy
+from copy import copy, deepcopy
 
 from game_component import *
 from tools import *
+from globals import MazeBlockType, BlockPickupType, BlockWallType
 
 
 class Maze(GameComponent):
@@ -12,9 +13,9 @@ class Maze(GameComponent):
     def __init__(self, parent, bounds):
         super().__init__(parent, bounds)
         self.maze = [[]]
-        self.width = 0
-        self.height = 0
-        self.ratio = 0
+        self.width = WIDTH_TILE_COUNT * TILE_SCALE_FACTOR + 3
+        self.height = HEIGHT_TILE_COUNT * TILE_SCALE_FACTOR + 3
+        self.aspect_ratio = self.width / self.height
         self.n = 0
         self.block_pixel_size = 0
         self.respawn_point = Point(0, 0)
@@ -24,7 +25,7 @@ class Maze(GameComponent):
         return self
 
     def __next__(self):
-        if self.n <= self.width * self.height:
+        if self.n <= len(self.maze) * len(self.maze[0]):
             x = self.n // len(self.maze)
             y = self.n % len(self.maze)
             self.n += 1
@@ -35,125 +36,35 @@ class Maze(GameComponent):
     def __getitem__(self, key):
         return self.maze[key]
 
+    def start(self):
+        self.generate_maze()
+        self.block_pixel_size = self.as_bounds.width / self.width
+        super().start()
+
     def draw(self):
         self.surface.fill(EMPTY)
 
         for x in range(self.width):
             for y in range(self.height):
-                block_type = self.maze[x][y]
-                if block_type == MazeBlockType.WALL:
-                    self.draw_wall(Point(x, y))
-                else:
-                    if block_type == MazeBlockType.PATH:
-                        color = MAZE_PATH_COLOR
-                    else:
-                        color = BLACK
+                self.maze[x][y].draw(self.surface, self.block_pixel_size)
 
-                    pygame.draw.rect(self.surface, color,
-                                     (x * self.block_pixel_size, y * self.block_pixel_size,
-                                      self.block_pixel_size, self.block_pixel_size))
-
-        for x in range(self.width + 1):
-            pygame.draw.line(self.surface, WHITE, (x * self.block_pixel_size, 0),
-                             (x * self.block_pixel_size, self.height * self.block_pixel_size))
-        for y in range(self.height + 1):
-            pygame.draw.line(self.surface, WHITE, (0, y * self.block_pixel_size),
-                             (self.width * self.block_pixel_size, y * self.block_pixel_size))
+        if DISPLAY_MAZE_GRIDLINES:
+            for x in range(self.width + 1):
+                pygame.draw.line(self.surface, WHITE, (x * self.block_pixel_size, 0),
+                                 (x * self.block_pixel_size, self.height * self.block_pixel_size))
+            for y in range(self.height + 1):
+                pygame.draw.line(self.surface, WHITE, (0, y * self.block_pixel_size),
+                                 (self.width * self.block_pixel_size, y * self.block_pixel_size))
 
         super().draw()
 
-    def draw_wall(self, position):
-        neighbours = self.get_neighbours(position)
-        wall_count = list(neighbours.values()).count(MazeBlockType.WALL)
-        path_count = list(neighbours.values()).count(MazeBlockType.PATH)
-
-        if path_count == 0:
-            pygame.draw.rect(self.surface, MAZE_EMPTY_COLOR, (position.x * self.block_pixel_size,
-                                                              position.y * self.block_pixel_size, self.block_pixel_size,
-                                                              self.block_pixel_size))
-
-        else:
-
-            center = Point(position.x * self.block_pixel_size + self.block_pixel_size / 2,
-                           position.y * self.block_pixel_size + self.block_pixel_size / 2)
-
-            line_width = int(round(self.block_pixel_size * WALL_THICKNESS_FACTOR))
-            if line_width % 2 != 0:
-                line_width += 1
-
-            p1 = center
-            p2 = center
-
-            if path_count == 2 or path_count == 3:
-
-                if neighbours.get("L") == MazeBlockType.PATH or neighbours.get("R") == MazeBlockType.PATH:
-                    p1 = center + Point(0, -self.block_pixel_size // 2)
-                    p2 = center + Point(0, self.block_pixel_size // 2)
-                elif neighbours.get("T") == MazeBlockType.PATH or neighbours.get("B") == MazeBlockType.PATH:
-                    p1 = center + Point(-self.block_pixel_size // 2, 0)
-                    p2 = center + Point(self.block_pixel_size // 2, 0)
-
-            elif path_count == 1:
-                if neighbours.get("TL") == MazeBlockType.PATH:
-                    p1 = center + Point(0, -self.block_pixel_size // 2)
-                    p2 = center + Point(-self.block_pixel_size // 2, 0)
-                elif neighbours.get("BL") == MazeBlockType.PATH:
-                    p1 = center + Point(0, self.block_pixel_size // 2)
-                    p2 = center + Point(-self.block_pixel_size // 2, 0)
-                elif neighbours.get("BR") == MazeBlockType.PATH:
-                    p1 = center + Point(0, self.block_pixel_size // 2)
-                    p2 = center + Point(self.block_pixel_size // 2, 0)
-                elif neighbours.get("TR") == MazeBlockType.PATH:
-                    p1 = center + Point(0, -self.block_pixel_size // 2)
-                    p2 = center + Point(self.block_pixel_size // 2, 0)
-
-            elif path_count == 4 or path_count == 5 or path_count == 6:
-
-                if neighbours.get("L") == MazeBlockType.PATH and neighbours.get("T") == MazeBlockType.PATH:
-                    p1 = center + Point(0, self.block_pixel_size // 2)
-                    p2 = center + Point(self.block_pixel_size // 2, 0)
-                elif neighbours.get("L") == MazeBlockType.PATH and neighbours.get("B") == MazeBlockType.PATH:
-                    p1 = center + Point(0, -self.block_pixel_size // 2)
-                    p2 = center + Point(self.block_pixel_size // 2, 0)
-                elif neighbours.get("R") == MazeBlockType.PATH and neighbours.get("B") == MazeBlockType.PATH:
-                    p1 = center + Point(0, -self.block_pixel_size // 2)
-                    p2 = center + Point(-self.block_pixel_size // 2, 0)
-                elif neighbours.get("R") == MazeBlockType.PATH and neighbours.get("T") == MazeBlockType.PATH:
-                    p1 = center + Point(0, self.block_pixel_size // 2)
-                    p2 = center + Point(-self.block_pixel_size // 2, 0)
-
-            elif path_count == 7:
-                p1 = center
-                if neighbours.get("B") == MazeBlockType.WALL:
-                    p2 = center + Point(0, self.block_pixel_size // 2)
-                elif neighbours.get("R") == MazeBlockType.WALL:
-                    p2 = center + Point(self.block_pixel_size // 2, 0)
-                elif neighbours.get("T") == MazeBlockType.WALL:
-                    p2 = center + Point(0, -self.block_pixel_size // 2)
-                elif neighbours.get("L") == MazeBlockType.WALL:
-                    p2 = center + Point(-self.block_pixel_size // 2, 0)
-
-            pygame.draw.line(self.surface, MAZE_WALL_COLOUR, (center.x, center.y), (p1.x, p1.y), line_width)
-            pygame.draw.line(self.surface, MAZE_WALL_COLOUR, (center.x, center.y), (p2.x, p2.y), line_width)
-
-    def get_neighbours(self, point):
-        """
-        Returns:
-            dict: The dictionary of neighbouring blocks containing their relative position and block type
-        """
-        neighbours = {"TL": self.point(point + Point(-1, -1)), "L": self.point(point + Point(-1, 0)),
-                      "BL": self.point(point + Point(-1, 1)), "B": self.point(point + Point(0, 1)),
-                      "BR": self.point(point + Point(1, 1)), "R": self.point(point + Point(1, 0)),
-                      "TR": self.point(point + Point(1, -1)), "T": self.point(point + Point(0, -1))}
-
-        return neighbours
-
     def on_scale(self, container_bounds):
         super().on_scale(container_bounds)
-        self.block_pixel_size = self.bounds.width // self.width
+        if self.enabled:
+            self.block_pixel_size = self.as_bounds.width / self.width
 
     def point(self, point):
-        if 0 <= point.x < self.width and 0 <= point.y < self.height:
+        if 0 <= point.x < len(self.maze) and 0 <= point.y < len(self.maze[0]):
             return self.maze[point.x][point.y]
         else:
             return MazeBlockType.EMPTY
@@ -166,7 +77,7 @@ class Maze(GameComponent):
             list: A generated maze
         """
         # Create empty 2D list to store maze
-        self.maze = [[MazeBlockType.EMPTY for y in range((HEIGHT_TILE_COUNT + 1) * TILE_SCALE_FACTOR)] for x in
+        self.maze = [[MazeBlock(Point(x, y)) for y in range(self.height)] for x in
                      range(int((WIDTH_TILE_COUNT // 2 + 1) * TILE_SCALE_FACTOR + 1))]
 
         # Get the maze pieces
@@ -184,11 +95,20 @@ class Maze(GameComponent):
 
         # Mirror the maze
         for x in range(len(self.maze) - 3, -1, -1):
-            self.maze.append(self.maze[x])
+            self.maze.append([])
+            for y in range(len(self.maze[0])):
+                new_block = self.maze[x][y].copy()
+                new_block.position = Point(len(self.maze)-1, y)
+                self.maze[-1].append(new_block)
 
-        self.width = len(self.maze)
-        self.height = len(self.maze[0])
-        self.ratio = self.width / self.height
+        for x in range(len(self.maze)):
+            for y in range(len(self.maze[0])):
+                block = self.maze[x][y]
+                if block.block_type == MazeBlockType.WALL:
+                    block.setup(self)
+                elif block.block_type == MazeBlockType.PATH:
+                    block.pickup_type = BlockPickupType.POINT
+
         self.respawn_point = Point(self.width // 2, self.height // 2)
 
     @staticmethod
@@ -334,12 +254,6 @@ def get_neighbour_points(point):
             points.append(point + Point(x - 1, y - 1))
     points.remove(point)
     return points
-
-
-class MazeBlockType:
-    EMPTY = 0
-    WALL = 1
-    PATH = 2
 
 
 class MazePiece:
@@ -495,7 +409,7 @@ class MazePiece:
                     for y in range(TILE_SCALE_FACTOR):
                         point = center_point + Point(x, y)
                         # Set the block to wall
-                        maze[point.x][point.y] = MazeBlockType.WALL
+                        maze[point.x][point.y] = WallBlock(point)
 
         # Set the current point the first vertex in the vertices list
         current_point = self.vertices[0]
@@ -514,12 +428,12 @@ class MazePiece:
                     # doesn't lie on the edge of the maze
                     if not self.empty_edge_piece or (x > TILE_SCALE_FACTOR // 2 and TILE_SCALE_FACTOR // 2 < y < len(
                             maze[0]) - TILE_SCALE_FACTOR // 2 - 1):
-                        maze[x][y] = MazeBlockType.PATH
+                        maze[x][y] = PathBlock(Point(x, y))
                         # Set all the empty blocks around this current path block to walls
                         for block in get_neighbour_points(Point(x, y)):
                             if 0 <= block.x < len(maze) and 0 <= block.y < len(maze[0]):
                                 if maze[block.x][block.y] == MazeBlockType.EMPTY:
-                                    maze[block.x][block.y] = MazeBlockType.WALL
+                                    maze[block.x][block.y] = WallBlock(block)
                 # Move to the next point by going towards the vertex by one block
                 current_point += direction
 
@@ -543,3 +457,118 @@ class MazePiece:
 
         # If the number of edge tiles is equal to or greater than the required edge density, return true
         return edge_tiles >= edge_density
+
+
+class MazeBlock:
+    block_type = MazeBlockType.EMPTY
+
+    def __init__(self, position):
+        self.position = position
+
+    def __str__(self):
+        return self.block_type.name
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __eq__(self, other):
+        return self.block_type == other
+
+    def draw(self, surface, block_size):
+        pygame.draw.rect(surface, MAZE_EMPTY_COLOR,
+                         (self.position.x * block_size, self.position.y * block_size, block_size, block_size))
+
+    def copy(self):
+        return self.__class__(self.position)
+
+
+class PathBlock(MazeBlock):
+    block_type = MazeBlockType.PATH
+
+    def __init__(self, position):
+        super().__init__(position)
+        self.pickup_type = BlockPickupType.NONE
+        self.pickup_consumed = False
+
+    def draw(self, surface, block_size):
+        pygame.draw.rect(surface, MAZE_PATH_COLOR,
+                         (self.position.x * block_size, self.position.y * block_size, block_size, block_size))
+
+        if not self.pickup_consumed:
+            if self.pickup_type == BlockPickupType.POINT:
+                pygame.draw.circle(surface, MAZE_POINT_COLOR,
+                                   ((self.position.x + 0.5) * block_size, (self.position.y + 0.5) * block_size),
+                                   MAZE_POINT_RADIUS_FACTOR * block_size // 2)
+            if self.pickup_type == BlockPickupType.POWER_PELLET:
+                pygame.draw.circle(surface, MAZE_POINT_COLOR,
+                                   ((self.position.x + 0.5) * block_size, (self.position.y + 0.5) * block_size),
+                                   MAZE_POWER_PELLET_RADIUS_FACTOR * block_size // 2)
+
+    def copy(self):
+        new_block = super().copy()
+        new_block.pickup_type = self.pickup_type
+        new_block.pickup_consumed = self.pickup_consumed
+        return new_block
+
+
+class WallBlock(MazeBlock):
+    block_type = MazeBlockType.WALL
+
+    def __init__(self, position):
+        super().__init__(position)
+        self.wall_type = None
+        self.orientation = 0
+
+    def setup(self, maze):
+        neighbours = {"TL": maze.point(self.position + Point(-1, -1)), "L": maze.point(self.position + Point(-1, 0)),
+                      "BL": maze.point(self.position + Point(-1, 1)), "B": maze.point(self.position + Point(0, 1)),
+                      "BR": maze.point(self.position + Point(1, 1)), "R": maze.point(self.position + Point(1, 0)),
+                      "TR": maze.point(self.position + Point(1, -1)), "T": maze.point(self.position + Point(0, -1))}
+
+        wall_count = list(neighbours.values()).count(MazeBlockType.WALL)
+        path_count = list(neighbours.values()).count(MazeBlockType.PATH)
+
+        self.wall_type = BlockWallType.CENTER
+
+        if path_count == 2 or path_count == 3:
+
+            self.wall_type = BlockWallType.SIDE
+            if neighbours.get("L") == MazeBlockType.PATH or neighbours.get("R") == MazeBlockType.PATH:
+                self.orientation = 90
+            elif neighbours.get("T") == MazeBlockType.PATH or neighbours.get("B") == MazeBlockType.PATH:
+                self.orientation = 0
+
+        elif path_count == 1:
+            self.wall_type = BlockWallType.CORNER
+            if neighbours.get("TL") == MazeBlockType.PATH:
+                self.orientation = 180
+            elif neighbours.get("BL") == MazeBlockType.PATH:
+                self.orientation = -90
+            elif neighbours.get("BR") == MazeBlockType.PATH:
+                self.orientation = 0
+            elif neighbours.get("TR") == MazeBlockType.PATH:
+                self.orientation = 90
+
+        elif path_count == 4 or path_count == 5 or path_count == 6:
+            self.wall_type = BlockWallType.CORNER
+            if neighbours.get("L") == MazeBlockType.PATH and neighbours.get("T") == MazeBlockType.PATH:
+                self.orientation = 0
+            elif neighbours.get("L") == MazeBlockType.PATH and neighbours.get("B") == MazeBlockType.PATH:
+                self.orientation = 90
+            elif neighbours.get("R") == MazeBlockType.PATH and neighbours.get("B") == MazeBlockType.PATH:
+                self.orientation = 180
+            elif neighbours.get("R") == MazeBlockType.PATH and neighbours.get("T") == MazeBlockType.PATH:
+                self.orientation = -90
+
+        self.wall_image = pygame.transform.rotate(pygame.image.load(BLOCK_WALL_IMAGE_NAMES.get(self.wall_type)),
+                                                  self.orientation)
+
+    def draw(self, surface, block_size):
+        image_bounds = Bounds(self.position.x * block_size, self.position.y * block_size, block_size, block_size)
+        draw_image(surface, self.wall_image, image_bounds)
+
+    def copy(self):
+        new_block = super().copy()
+        new_block.wall_type = self.wall_type
+        new_block.orientation = self.orientation
+        return new_block

@@ -1,18 +1,15 @@
 import sys
-import pygame
-
 from pac_man import PACMAN
 from tools import *
 from settings import *
 import globals
 
-screen = pygame.display.set_mode(START_SIZE, pygame.RESIZABLE)
+globals.size = START_SIZE
+screen = pygame.display.set_mode(globals.size, pygame.RESIZABLE)
 clock = pygame.time.Clock()
 running = True
 
-globals.game = PACMAN(None, Bounds(0.5, 0.5, 1, 1))
-globals.size = START_SIZE
-globals.game.on_scale(Bounds(0, 0, START_SIZE[0], START_SIZE[1]))
+globals.game = PACMAN(None, BoundScale(0.5, 0.5, 1, 1), Bounds(0, 0, globals.size[0], globals.size[1]))
 
 
 def run():
@@ -21,6 +18,7 @@ def run():
         for event in pygame.event.get():
             process_events(event)
             globals.game.process_events(event)
+
         globals.game.update()
         globals.game.draw()
         screen.blit(globals.game.surface, globals.game.bounds.position())
@@ -33,7 +31,6 @@ def run():
 
 
 def process_events(event):
-
     global running
     global screen
 
@@ -53,8 +50,8 @@ def process_events(event):
         else:
             new_size[0] = int(new_size[1] * ASPECT_RATIO)
 
-        screen = pygame.display.set_mode(new_size, pygame.RESIZABLE)
         globals.size = tuple(new_size)
+        screen = pygame.display.set_mode(globals.size, pygame.RESIZABLE)
         globals.game.on_scale(Bounds(0, 0, globals.size[0], globals.size[1]))
 
 

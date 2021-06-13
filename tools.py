@@ -1,7 +1,9 @@
 import math
 import pygame
 
-a = pygame.math.Vector2(5, 6)
+
+def draw_image(surface, image, bounds):
+    surface.blit(pygame.transform.smoothscale(image, bounds.size()), bounds.position())
 
 
 class CartesianObject:
@@ -381,16 +383,28 @@ class Vector(CartesianObject):
         return math.degrees(math.atan2(vector2.x - vector1.x, vector2.y - vector1.y))
 
 
-class Bounds():
-
-    def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+class Bounds(pygame.Rect):
 
     def size(self):
         return self.width, self.height
 
     def position(self):
         return self.x, self.y
+
+    def point(self):
+        return Point(self.x, self.y)
+
+    def is_within(self, x, y):
+        return self.left <= x <= self.right and self.top <= y <= self.bottom
+
+    def aspect_ratio(self):
+        return self.width / self.height
+
+
+class BoundScale:
+
+    def __init__(self, x_scale, y_scale, width_scale, height_scale):
+        self.x = x_scale
+        self.y = y_scale
+        self.width = width_scale
+        self.height = height_scale

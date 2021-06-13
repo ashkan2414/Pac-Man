@@ -6,21 +6,21 @@ from globals import GhostType
 
 class Entity(GameComponent):
 
-    def __init__(self, parent, scale, speed, animation):
+    speed = 5
+
+    def __init__(self, parent, scale):
         super().__init__(parent, scale)
-        self.speed = speed
         self.location = Point(0, 0)
         self.block_target = Point(0, 0)
         self.direction = Vector(0, 0)
-        self.maze = None
+        self.maze = self.parent.maze
+        self.aspect_ratio = self.maze.aspect_ratio
 
     def set_start_location(self, start_location):
         self.location = start_location
         self.block_target = start_location
 
     def start(self):
-        self.maze = self.parent.maze
-
         x = random.randrange(0, self.maze.width - 1)
         y = random.randrange(0, self.maze.height - 1)
         while self.maze[x][y] != MazeBlockType.PATH:
@@ -36,14 +36,20 @@ class Entity(GameComponent):
         self.location += self.direction * self.speed * globals.delta_time
         super().update()
 
+    def on_scale(self, container_bounds):
+        super().on_scale(container_bounds)
+        self.location = self.block_target
+
     def on_block(self):
         return Point.distance(self.location, self.block_target) < self.speed * globals.delta_time
 
 
 class Pacman(Entity):
 
-    def __init__(self, parent, scale, speed, animation):
-        super().__init__(parent, scale, speed, animation)
+    speed = PAC_MAN_SPEED
+
+    def __init__(self, parent, scale):
+        super().__init__(parent, scale)
         self.points = 0
         self.next_direction = Vector(0, 0)
 
@@ -93,12 +99,13 @@ class Pacman(Entity):
 
 
 class Ghost(Entity):
+    speed = GHOST_SPEED
     scatter_target = None
     color = None
     ghost_type = None
 
-    def __init__(self, parent, scale, speed, animation):
-        super().__init__(parent, scale, speed, animation)
+    def __init__(self, parent, scale):
+        super().__init__(parent, scale)
         self.pacman = None
         self.ghosts = None
         self.current_state = GHOST_START_STATE
@@ -223,8 +230,8 @@ class Blinky(Ghost):
         self.target_location = self.pacman.location
 
 
-class Binky(Ghost):
-    ghost_type = GhostType.BINKY
+class Pinky(Ghost):
+    ghost_type = GhostType.PINKY
     scatter_target = Point(0, 0)
     color = PINK
 
