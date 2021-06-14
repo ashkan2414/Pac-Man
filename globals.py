@@ -4,11 +4,15 @@ delta_time = 0
 game = None
 size = (0, 0)
 
+scaled_maze_wall_images = {}
+scaled_maze_barrier_image = None
+
 
 class MazeBlockType(Enum):
     EMPTY = 0
     WALL = 1
     PATH = 2
+    BARRIER = 3
 
 
 class BlockPickupType(Enum):
@@ -24,6 +28,9 @@ class BlockWallType(Enum):
     EDGE_OUTER_CORNER = 3
     EDGE_SIDE = 4
     EDGE_INNER_CORNER = 5
+    EDGE_BARRIER_SIDE = 6
+    EDGE_CONNECTOR_SIDE = 7
+    EDGE_CONNECTOR_CORNER = 8
 
 
 class GameStateType(Enum):

@@ -2,10 +2,10 @@ import globals
 from maze import *
 from settings import *
 from globals import GhostType
+from animation import *
 
 
 class Entity(GameComponent):
-
     speed = 5
 
     def __init__(self, parent, scale):
@@ -15,6 +15,7 @@ class Entity(GameComponent):
         self.direction = Vector(0, 0)
         self.maze = self.parent.maze
         self.aspect_ratio = self.maze.aspect_ratio
+        self.animator = Animator()
 
     def set_start_location(self, start_location):
         self.location = start_location
@@ -23,17 +24,24 @@ class Entity(GameComponent):
     def start(self):
         x = random.randrange(0, self.maze.width - 1)
         y = random.randrange(0, self.maze.height - 1)
-        while self.maze[x][y] != MazeBlockType.PATH:
+        while self.maze.point(Point(x, y)) != MazeBlockType.PATH:
             x = random.randrange(0, self.maze.width - 1)
             y = random.randrange(0, self.maze.height - 1)
 
         self.location = Point(x, y)
         self.block_target = self.location
 
+        self.animator.start()
         super().start()
 
     def update(self):
+
+        if (self.block_target - self.location).vector().normalised() != self.direction:
+            self.location = self.block_target
+
         self.location += self.direction * self.speed * globals.delta_time
+
+        self.animator.update()
         super().update()
 
     def on_scale(self, container_bounds):
@@ -45,7 +53,6 @@ class Entity(GameComponent):
 
 
 class Pacman(Entity):
-
     speed = PAC_MAN_SPEED
 
     def __init__(self, parent, scale):
@@ -100,14 +107,13 @@ class Pacman(Entity):
 
 class Ghost(Entity):
     speed = GHOST_SPEED
+    home_location = None
     scatter_target = None
     color = None
     ghost_type = None
 
     def __init__(self, parent, scale):
         super().__init__(parent, scale)
-        self.pacman = None
-        self.ghosts = None
         self.current_state = GHOST_START_STATE
         self.normal_state = GHOST_START_STATE
         self.state_timer = 0
@@ -119,9 +125,21 @@ class Ghost(Entity):
                                    GhostAIState.FRIGHTENED: self.frightened_state,
                                    GhostAIState.EATEN: self.eaten_state}
 
+        animation = []
+        for image in GHOST_ANIMATION_FILES:
+            animation.append(pygame.image.load(image))
+            pixels = pygame.PixelArray(animation[-1])
+            pixels.replace(RED, self.color, 0.15)
+            del pixels
+        self.animator.add_animation(Animation("Normal", animation, GHOST_ANIMATION_FRAME_RATE))
+        self.animator.set_animation("Normal")
+
+        animation = []
+        for image in GHOST_FRIGHTENED_ANIMATION_FILES:
+            animation.append(pygame.image.load(image))
+        self.animator.add_animation(Animation("Frightened", animation, GHOST_ANIMATION_FRAME_RATE))
+
     def start(self):
-        self.pacman = self.parent.pacman
-        self.ghosts = self.parent.ghosts
         self.current_state = GHOST_START_STATE
         self.normal_state = GHOST_START_STATE
         self.state_timer = 0
@@ -162,6 +180,13 @@ class Ghost(Entity):
             self.current_state = new_state
             self.turn_around = True
 
+            if self.current_state == GhostAIState.FRIGHTENED:
+                self.animator.set_animation("Frightened")
+            elif self.current_state == GhostAIState.EATEN:
+                self.animator.set_animation(None)
+            else:
+                self.animator.set_animation("Normal")
+
     def scatter_state(self):
         self.direction = self.choose_direction(self.scatter_target)
         self.target_location = self.scatter_target
@@ -183,14 +208,17 @@ class Ghost(Entity):
     def choose_direction(self, target):
 
         directions = self.get_directions()
-        best_direction = [directions[0], 10000]
 
-        for direction in directions:
-            distance = Point.distance(self.location + direction, target)
-            if distance < best_direction[-1]:
-                best_direction = [direction, distance]
+        if directions:
+            best_direction = [directions[0], 10000]
+            for direction in directions:
+                distance = Point.distance(self.location + direction, target)
+                if distance < best_direction[-1]:
+                    best_direction = [direction, distance]
+            return best_direction[0]
 
-        return best_direction[0]
+        else:
+            return Vector(0, 0)
 
     def get_directions(self):
         possible_directions = [self.direction,
@@ -208,15 +236,37 @@ class Ghost(Entity):
 
     def draw(self):
         self.surface.fill(EMPTY)
-        pygame.draw.circle(self.surface, self.color,
-                           (self.location.x * self.maze.block_pixel_size + self.maze.block_pixel_size // 2,
-                            self.location.y * self.maze.block_pixel_size + self.maze.block_pixel_size // 2),
-                           self.maze.block_pixel_size // 2)
+        size = self.maze.block_pixel_size * ENTITY_SIZE_FACTOR
+        image_bounds = Bounds(self.maze.block_pixel_size * (self.location.x + (1 - ENTITY_SIZE_FACTOR) / 2),
+                              self.maze.block_pixel_size * (self.location.y + (1 - ENTITY_SIZE_FACTOR) / 2),
+                              size,
+                              size)
 
-        pygame.draw.circle(self.surface, self.color,
-                           (self.target_location.x * self.maze.block_pixel_size + self.maze.block_pixel_size // 2,
-                            self.target_location.y * self.maze.block_pixel_size + self.maze.block_pixel_size // 2),
-                           self.maze.block_pixel_size // 3)
+        draw_image(self.surface, self.animator.get_current_frame(), image_bounds)
+
+        eye_separation = size * GHOST_EYE_SEPARATION_FACTOR
+        eye1_center = Point(image_bounds.x + (size - eye_separation) / 2,
+                            image_bounds.y + image_bounds.h * GHOST_EYE_VERTICAL_OFFSET_FACTOR)
+        eye2_center = Point(image_bounds.x + (size + eye_separation) / 2, eye1_center.y)
+
+        pupil1_center = eye1_center + self.direction * size * GHOST_PUPIL_OFFSET_FACTOR
+        pupil2_center = eye2_center + self.direction * size * GHOST_PUPIL_OFFSET_FACTOR
+
+        draw_ellipse(self.surface, WHITE, eye1_center, GHOST_EYE_RADIUS_FACTOR[0] * size,
+                     GHOST_EYE_RADIUS_FACTOR[1] * size)
+        draw_ellipse(self.surface, WHITE, eye2_center, GHOST_EYE_RADIUS_FACTOR[0] * size,
+                     GHOST_EYE_RADIUS_FACTOR[1] * size)
+
+        pygame.draw.circle(self.surface, GHOST_PUPIL_COLOR, (pupil1_center.x, pupil1_center.y),
+                           size * GHOST_PUPIL_RADIUS_FACTOR)
+        pygame.draw.circle(self.surface, GHOST_PUPIL_COLOR, (pupil2_center.x, pupil2_center.y),
+                           size * GHOST_PUPIL_RADIUS_FACTOR)
+
+        if DISPLAY_GHOST_TARGET:
+            pygame.draw.circle(self.surface, self.color,
+                               (self.target_location.x * self.maze.block_pixel_size + self.maze.block_pixel_size // 2,
+                                self.target_location.y * self.maze.block_pixel_size + self.maze.block_pixel_size // 2),
+                               self.maze.block_pixel_size // 3)
         super().draw()
 
 
@@ -226,8 +276,8 @@ class Blinky(Ghost):
     color = RED
 
     def chase_state(self):
-        self.direction = self.choose_direction(Point.rounded(self.pacman.location))
-        self.target_location = self.pacman.location
+        self.direction = self.choose_direction(Point.rounded(self.parent.pacman.location))
+        self.target_location = self.parent.pacman.location
 
 
 class Pinky(Ghost):
@@ -236,8 +286,8 @@ class Pinky(Ghost):
     color = PINK
 
     def chase_state(self):
-        self.direction = self.choose_direction(self.pacman.location + (self.pacman.direction * 4))
-        self.target_location = self.pacman.location + (self.pacman.direction * 4)
+        self.direction = self.choose_direction(self.parent.pacman.location + (self.parent.pacman.direction * 4))
+        self.target_location = self.parent.pacman.location + (self.parent.pacman.direction * 4)
 
 
 class Inky(Ghost):
@@ -246,8 +296,8 @@ class Inky(Ghost):
     color = CYAN
 
     def chase_state(self):
-        blinky = self.ghosts.get(GhostType.BLINKY)
-        target_location = (self.pacman.location - blinky.location) + self.pacman.location
+        blinky = self.parent.ghosts.get(GhostType.BLINKY)
+        target_location = (self.parent.pacman.location - blinky.location) + self.parent.pacman.location
         self.direction = self.choose_direction(target_location)
         self.target_location = target_location
 
@@ -258,111 +308,8 @@ class Clyde(Ghost):
     color = ORANGE
 
     def chase_state(self):
-        if Point.distance(self.location, self.pacman.location) >= 8:
-            self.target_location = self.pacman.location
+        if Point.distance(self.location, self.parent.pacman.location) >= 8:
+            self.target_location = self.parent.pacman.location
         else:
             self.target_location = self.scatter_target
         self.direction = self.choose_direction(self.target_location)
-
-
-class Animator(GameComponent):
-
-    def __init__(self, parent, scale, animation):
-        super().__init__(parent, scale)
-        self.animation = animation
-        self.current_frame = 0
-        self.current_time = 0
-        self.animation_time = 0
-
-    def start(self):
-        self.current_time = 0
-        self.current_frame = 0
-
-    def update(self):
-        self.current_time += globals.delta_time
-
-        if self.current_time > self.animation_time:
-            self.current_time -= self.animation_time
-
-        self.current_frame = self.animation.get_frame(self.current_time * self.animation.fps)
-
-
-class ASNode:
-
-    def __init__(self, location, g=0, h=0, parent=None):
-        self.location = location
-        self.g = g
-        self.h = h
-        self.f = self.g + self.h
-        self.parent = parent
-
-    def __eq__(self, other):
-        return self.location == other.location
-
-    def __str__(self):
-        return str(self.location)
-
-    def __repr__(self):
-        return str(self.location)
-
-    def neighbours(self):
-        neighbour_nodes = [ASNode(self.location - Point(1, 0), self.g + 1, 0, self),
-                           ASNode(self.location - Point(-1, 0), self.g + 1, 0, self),
-                           ASNode(self.location - Point(0, 1), self.g + 1, 0, self),
-                           ASNode(self.location - Point(0, -1), self.g + 1, 0, self)]
-        return neighbour_nodes
-
-    def calculate_h(self, target_location):
-        self.h = Point.distance(self.location, target_location)
-
-    def calculate_f(self):
-        self.f = self.g + self.h
-
-
-"""
-    def get_path(self, target):
-        open_nodes = [ASNode(self.location, 0, Point.distance(self.location, target))]
-        closed_nodes = []
-
-        def lowest_f_score(nodes):
-            result = nodes[0]
-
-            for node in nodes:
-                if node.f < result.f:
-                    result = node
-            return result
-
-        def construct_path(end_node):
-
-            path = [end_node.location]
-
-            current_node = end_node
-            while current_node.parent:
-                path.append(current_node.parent.location)
-                current_node = current_node.parent
-            path.reverse()
-            return path
-
-        while open_nodes:
-            current_node = lowest_f_score(open_nodes)
-            if current_node.location == target:
-                return construct_path(current_node)
-
-            open_nodes.remove(current_node)
-            closed_nodes.append(current_node)
-
-            for node in current_node.neighbours():
-                if node not in closed_nodes and self.maze.point(node.location) == MazeBlockType.PATH:
-                    if node not in open_nodes:
-                        node.calculate_h(target)
-                        node.calculate_f()
-                        open_nodes.append(node)
-                    else:
-                        existing_node = open_nodes[open_nodes.index(node)]
-                        if node.g < existing_node.g:
-                            existing_node.g = node.g
-                            existing_node.calculate_f()
-                            existing_node.parent = current_node
-
-        return False
-"""

@@ -6,6 +6,11 @@ def draw_image(surface, image, bounds):
     surface.blit(pygame.transform.smoothscale(image, bounds.size()), bounds.position())
 
 
+def draw_ellipse(surface, color, center, x_radius, y_radius):
+    ellipse_rect = (center.x - x_radius, center.y - y_radius, x_radius * 2, y_radius * 2)
+    pygame.draw.ellipse(surface, color, ellipse_rect)
+
+
 class CartesianObject:
     """
     Holds information about a geometric object on a cartesian grid and provides methods to interact with them
@@ -246,6 +251,10 @@ class Point(CartesianObject):
     def left_most(points):
         Returns the left most lowest point in a set of points
 
+    @staticmethod
+    def get_neighbour_points(point):
+        Returns the surrounding points of a point
+
     Parent (CartesianObject):
     """
 
@@ -302,6 +311,25 @@ class Point(CartesianObject):
 
         return result
 
+    @staticmethod
+    def get_neighbour_points(point):
+        """
+        Returns the surrounding points of a point
+
+        Parameters:
+            point (Point): The point to get surroundings of
+
+        Returns:
+            list: The list of surrounding point
+        """
+        points = []
+
+        for x in range(3):
+            for y in range(3):
+                points.append(point + Point(x - 1, y - 1))
+        points.remove(point)
+        return points
+
 
 class Vector(CartesianObject):
     """
@@ -345,7 +373,11 @@ class Vector(CartesianObject):
         Returns:
             Vector: The normalized vector in the same direction
         """
-        return self / self.magnitude()
+        magnitude = self.magnitude()
+        if magnitude == 0:
+            return Vector(0, 0)
+        else:
+            return self / magnitude
 
     def intersects_points(self, points, start=Point(0, 0)):
         """

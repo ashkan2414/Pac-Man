@@ -14,7 +14,6 @@ globals.game = PACMAN(None, BoundScale(0.5, 0.5, 1, 1), Bounds(0, 0, globals.siz
 
 def run():
     while running:
-        globals.delta_time = clock.tick(FPS) / 1000.0
         for event in pygame.event.get():
             process_events(event)
             globals.game.process_events(event)
@@ -24,6 +23,8 @@ def run():
         screen.blit(globals.game.surface, globals.game.bounds.position())
         pygame.display.flip()
         pygame.display.update()
+
+        globals.delta_time = clock.tick_busy_loop(FPS) / 1000.0
 
     # Exit the program
     pygame.quit()
