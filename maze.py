@@ -17,8 +17,8 @@ class Maze(GameComponent):
         self.width = WIDTH_TILE_COUNT * TILE_SCALE_FACTOR + 3
         self.height = HEIGHT_TILE_COUNT * TILE_SCALE_FACTOR + 3
         self.aspect_ratio = self.width / self.height
-        self.block_pixel_size = 0
-        self.respawn_point = Point(0, 0)
+        self.block_size = 0
+        self.wall_surface = None
         self.n = 0
 
         self.wall_images = {}
@@ -38,8 +38,8 @@ class Maze(GameComponent):
 
     def __next__(self):
         if self.maze and self.n < len(self.maze) * len(self.maze[0]):
-            x = self.n // len(self.maze)
-            y = self.n % len(self.maze)
+            y = self.n // len(self.maze)
+            x = self.n % len(self.maze)
             self.n += 1
             return self.point((Point(x, y)))
         else:
@@ -50,41 +50,59 @@ class Maze(GameComponent):
 
     def start(self):
         self.generate_maze()
-        self.block_pixel_size = round(self.as_bounds.width / self.width)
+        self.draw_walls()
+
         super().start()
 
     def draw(self):
         self.surface.fill(EMPTY)
-
+        self.surface.blit(self.wall_surface, (0, 0))
         for block in self:
-            block.draw(self.surface, self.block_pixel_size)
+            if block.block_type == MazeBlockType.PATH:
+                block.draw(self.surface, self.block_size)
 
         if DISPLAY_MAZE_GRIDLINES:
             for x in range(self.width + 1):
-                pygame.draw.line(self.surface, WHITE, (x * self.block_pixel_size, 0),
-                                 (x * self.block_pixel_size, self.height * self.block_pixel_size))
+                pygame.draw.line(self.surface, WHITE, (x * self.block_size, 0),
+                                 (x * self.block_size, self.height * self.block_size))
             for y in range(self.height + 1):
-                pygame.draw.line(self.surface, WHITE, (0, y * self.block_pixel_size),
-                                 (self.width * self.block_pixel_size, y * self.block_pixel_size))
+                pygame.draw.line(self.surface, WHITE, (0, y * self.block_size),
+                                 (self.width * self.block_size, y * self.block_size))
 
         super().draw()
 
     def on_scale(self, container_bounds):
         super().on_scale(container_bounds)
-        self.block_pixel_size = round(self.as_bounds.width / self.width)
+        self.block_size = int(self.as_bounds.width / self.width)
+
+        # Deal with gaps left when scaling maze
+        bound_position_offset = (self.as_bounds.width - self.width * self.block_size) / 2
+        self.as_bounds.x += bound_position_offset
+        self.as_bounds.y += bound_position_offset
+        self.as_bounds.width -= bound_position_offset * 2
+        self.as_bounds.height -= bound_position_offset * 2
+        self.surface = pygame.Surface(self.as_bounds.size(), flags=pygame.SRCALPHA)
 
         globals.scaled_maze_wall_images.clear()
-        block_size = (self.block_pixel_size, self.block_pixel_size)
+        block_size = (self.block_size, self.block_size)
         for walL_type, image in self.wall_images.items():
             globals.scaled_maze_wall_images[walL_type] = pygame.transform.smoothscale(image, block_size)
 
         globals.scaled_maze_barrier_image = pygame.transform.smoothscale(self.barrier_image, block_size)
+
+        self.draw_walls()
 
     def point(self, point):
         if 0 <= point.x < len(self.maze) and 0 <= point.y < len(self.maze[0]):
             return self[point.x][point.y]
         else:
             return MazeBlock(point)
+
+    def draw_walls(self):
+        self.wall_surface = self.surface.copy()
+        for block in self:
+            if block.block_type != MazeBlockType.PATH:
+                block.draw(self.wall_surface, self.block_size)
 
     def generate_maze(self):
         """
@@ -113,7 +131,15 @@ class Maze(GameComponent):
         # Remove last column to make it symmetrical for mirroring
         self.maze.pop()
 
+        # Set barrier block
         self.maze[-1][MAZE_BARRIER_Y_POSITION] = BarrierBlock(Point(len(self.maze) - 1, MAZE_BARRIER_Y_POSITION))
+
+        # Add power pellets
+        path_blocks = [block for block in self if block.block_type == MazeBlockType.PATH]
+        for i in range(POWER_PELLET_QUANTITY // 2):
+            random_block = random.choice(path_blocks)
+            random_block.pickup_type = BlockPickupType.POWER_PELLET
+            path_blocks.remove(random_block)
 
         # Mirror the maze
         for x in range(len(self.maze) - 1, -1, -1):
@@ -127,9 +153,8 @@ class Maze(GameComponent):
             if block.block_type == MazeBlockType.WALL:
                 block.setup(self)
             elif block.block_type == MazeBlockType.PATH:
-                block.pickup_type = BlockPickupType.POINT
-
-        self.respawn_point = Point(self.width // 2, self.height // 2)
+                if block.pickup_type == BlockPickupType.NONE:
+                    block.pickup_type = BlockPickupType.POINT
 
     @staticmethod
     def generate_pieces(width, height):
@@ -376,7 +401,7 @@ class MazePiece:
                     if len(self.vertices) < 2 or not (vertex - current_vertex).vector().intersects_points(
                             self.vertices[:-1], current_vertex):
                         # Get the angle from the vertex and the current vertex
-                        angle = Vector.angle(current_vertex.vector(), vertex.vector())
+                        angle = (vertex - current_vertex).vector().angular_position()
                         # If the angle is bigger than the best vertex so far, set the best vertex to this vertex
                         if angle > next_vertex[1]:
                             next_vertex = [vertex, angle]
@@ -467,7 +492,7 @@ class MazeBlock:
         self.position = position
 
     def __str__(self):
-        return self.block_type.name
+        return self.block_type.name + str(self.position)
 
     def __repr__(self):
         return self.__str__()

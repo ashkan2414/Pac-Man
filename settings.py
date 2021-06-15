@@ -1,4 +1,5 @@
 from globals import GhostAIState, BlockWallType, GhostType
+from tools import *
 
 # General settings
 ASPECT_RATIO = 17 / 17
@@ -26,28 +27,34 @@ maze_piece_shape_presets = [
     ["U", "R", "L"]
 ]
 
+MAZE_CAGE_BOUNDS = Bounds(11, 11, 7, 4)
+
 # Pickup settings
 MAZE_POINT_RADIUS_FACTOR = 0.3
 MAZE_POWER_PELLET_RADIUS_FACTOR = 0.6
-POWER_PELLET_QUANTITY = 5
+POWER_PELLET_QUANTITY = 6
+POINT_PICKUP_VALUE = 10
 
 # Entity settings
 ENTITY_SIZE_FACTOR = 1.5
+ENTITY_COLLISION_DISTANCE = 0.8
 
-PAC_MAN_SPEED = 5
+PAC_MAN_SPEED = 6
+PACMAN_ANIMATION_FRAME_RATE = 15
+PACMAN_DEATH_ANIMATION_FRAME_RATE = 5
 
-GHOST_SPEED = 3
-
+GHOST_SPEED = 5
 GHOST_START_STATE = GhostAIState.SCATTER
 GHOST_STATE_SCHEDULE = (15, 15, 15, 15, 15, 15)
-
+GHOST_FRIGHTENED_DURATION = 10
 GHOST_EYE_SEPARATION_FACTOR = 0.38
 GHOST_EYE_VERTICAL_OFFSET_FACTOR = 0.4
 GHOST_EYE_RADIUS_FACTOR = (0.13, 0.15)
 GHOST_PUPIL_OFFSET_FACTOR = 0.05
 GHOST_PUPIL_RADIUS_FACTOR = 0.085
-
 GHOST_ANIMATION_FRAME_RATE = 8
+GHOST_EATEN_PAUSE_TIME = 0.8
+
 
 # Colors
 EMPTY = (0, 0, 0, 0)
@@ -86,10 +93,19 @@ BLOCK_WALL_IMAGE_FILES = {BlockWallType.CENTER: "M_WB_Center.png", BlockWallType
 BLOCK_BARRIER_IMAGE_FILE = "M_BB.png"
 
 GHOST_ANIMATION_FILES = ("E_G_F0.png", "E_G_F1.png")
-GHOST_FRIGHTENED_ANIMATION_FILES = ("E_G_F0.png", "E_G_F1.png")
+GHOST_FRIGHTENED_ANIMATION_FILES = ("E_FG_F0.png", "E_FG_F1.png")
+
+PACMAN_MOVING_ANIMATION_FILES = ("E_P_F0.png", "E_P_F1.png", "E_P_F2.png", "E_P_F3.png", "E_P_F4.png", "E_P_F5.png",
+                                 "E_P_F6.png", "E_P_F7.png")
+
+PACMAN_IDLE_ANIMATION_FILES = ("E_P_F2.png",)
+
+PACMAN_DEATH_ANIMATION_FILES = ("E_PD_F00.png", "E_PD_F01.png", "E_PD_F02.png", "E_PD_F03.png", "E_PD_F04.png",
+                                "E_PD_F05.png", "E_PD_F06.png", "E_PD_F07.png", "E_PD_F08.png", "E_PD_F09.png",
+                                "E_PD_F10.png", "E_PD_F11.png", "E_PD_F12.png", "E_PD_F13.png")
 
 # Debug Settings
-DISPLAY_BOUND_BORDER = False
-DISPLAY_MAZE_GRIDLINES = True
+DISPLAY_BOUND_BORDER = True
+DISPLAY_MAZE_GRIDLINES = False
 DISPLAY_GHOST_TARGET = False
 BOUND_BORDER_COLOR = BLUE

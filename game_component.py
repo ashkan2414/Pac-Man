@@ -9,6 +9,7 @@ class GameComponent:
         self.parent = parent
         self.scale = scale
         self.enabled = True
+        self.paused = False
         self.child_game_components = []
         self.bounds = Bounds(0, 0, 500, 500)
         self.surface = pygame.Surface(self.bounds.size(), flags=pygame.SRCALPHA)
@@ -33,7 +34,7 @@ class GameComponent:
 
     def update(self):
         for component in self.child_game_components:
-            if component.enabled:
+            if component.enabled and not component.paused:
                 component.update()
 
     def draw(self):
@@ -56,7 +57,7 @@ class GameComponent:
         if self.aspect_ratio:
             if self.aspect_ratio < self.bounds.aspect_ratio():
                 self.as_bounds.width = self.bounds.height * self.aspect_ratio
-                self.as_bounds.x += (self.bounds.width-self.as_bounds.width)/2
+                self.as_bounds.x += (self.bounds.width - self.as_bounds.width) / 2
             elif self.aspect_ratio > self.bounds.aspect_ratio():
                 self.as_bounds.height = self.bounds.width / self.aspect_ratio
                 self.as_bounds.y += (self.bounds.height - self.as_bounds.height) / 2
@@ -72,5 +73,16 @@ class GameComponent:
 
     def set_enable(self, state):
         self.enabled = state
+        self.set_children_enable(state)
+
+    def set_children_enable(self, state):
         for component in self.child_game_components:
             component.set_enable(state)
+
+    def set_pause(self, state):
+        self.paused = state
+        self.set_children_pause(state)
+
+    def set_children_pause(self, state):
+        for component in self.child_game_components:
+            component.set_pause(state)

@@ -11,6 +11,13 @@ def draw_ellipse(surface, color, center, x_radius, y_radius):
     pygame.draw.ellipse(surface, color, ellipse_rect)
 
 
+def load_animation(files):
+    frames = []
+    for file in files:
+        frames.append(pygame.image.load(file))
+    return frames
+
+
 class CartesianObject:
     """
     Holds information about a geometric object on a cartesian grid and provides methods to interact with them
@@ -151,6 +158,9 @@ class CartesianObject:
             bool: Whether this cartesian object is not equal to another cartesian object
         """
         return not (self == other)
+
+    def copy(self):
+        return self.__class__(self.x, self.y)
 
     def rotate(self, angle, axis):
         """
@@ -400,6 +410,9 @@ class Vector(CartesianObject):
         # If not returned by here, then no intersections were detected so return False
         return False
 
+    def angular_position(self):
+        return math.degrees(math.atan2(self.x, self.y))
+
     @staticmethod
     def angle(vector1, vector2):
         """
@@ -412,7 +425,8 @@ class Vector(CartesianObject):
         Returns:
             int, float: The angle between the vectors
         """
-        return math.degrees(math.atan2(vector2.x - vector1.x, vector2.y - vector1.y))
+        return math.degrees(
+            math.acos((vector1.x * vector2.x + vector1.y * vector2.y) / (vector1.magnitude() * vector2.magnitude())))
 
 
 class Bounds(pygame.Rect):
