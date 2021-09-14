@@ -1,24 +1,31 @@
+import os
 import sys
-from pac_man import PACMAN
-from tools import *
+
+from managers import *
+from pacman_game import *
 from settings import *
-import globals
+
+pygame.init()
+pygame.mixer.init()
+SoundManager.init()
 
 globals.size = START_SIZE
 screen = pygame.display.set_mode(globals.size, pygame.RESIZABLE)
 clock = pygame.time.Clock()
 running = True
 
-globals.game = PACMAN(None, BoundScale(0.5, 0.5, 1, 1), Bounds(0, 0, globals.size[0], globals.size[1]))
+globals.game = Pacman_Game(None, BoundScale(0.5, 0.5, 1, 1), Bounds(0, 0, globals.size[0], globals.size[1]))
 
 
 def run():
     while running:
         for event in pygame.event.get():
-            process_events(event)
-            globals.game.process_events(event)
+            process_default_event(event)
+            globals.game.process_event(event)
 
         globals.game.update()
+        TimedEventManager.update()
+        SoundManager.update()
         globals.game.draw()
         screen.blit(globals.game.surface, globals.game.bounds.position())
         pygame.display.flip()
@@ -27,11 +34,12 @@ def run():
         globals.delta_time = clock.tick_busy_loop(FPS) / 1000.0
 
     # Exit the program
+    globals.game.end()
     pygame.quit()
     sys.exit()
 
 
-def process_events(event):
+def process_default_event(event):
     global running
     global screen
 

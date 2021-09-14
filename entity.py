@@ -1,51 +1,110 @@
-import globals
-from maze import *
-from settings import *
-from globals import GhostType
+import random
+
 from animation import *
+from game_component import *
+from managers import *
 
 
 class Entity(GameComponent):
+    """
+    Entities are the various game objects that navigate around the maze such as ghosts or pacman
+
+    ...
+
+    Attributes:
+    -----------
+    location (Point): The location of the entity
+    block_target (Point): The next block the entity is travelling towards
+    direction (Vector): The current direction the entity is travelling in
+    animator (Animator): Handles animates the entity
+    size (int): The pixel size of the entity
+
+
+    Static Attributes:
+    ------------------
+    speed (int): The speed of the entity
+    traversable_blocks (tuple): A tuple of the blocks that the entity can travel on
+
+    Methods:
+    --------
+    def on_target_block(self):
+        Returns whether the entity has reached the target block
+
+    def get_drawing_bounds(self):
+        Returns the drawing bounds of the entity
+    """
     speed = 5
     traversable_blocks = (MazeBlockType.PATH,)
 
     def __init__(self, parent, scale):
         super().__init__(parent, scale)
+        self.aspect_ratio = self.parent.maze.aspect_ratio
+
         self.location = Point(0, 0)
         self.block_target = Point(0, 0)
         self.direction = Vector(0, 0)
-        self.aspect_ratio = self.parent.maze.aspect_ratio
         self.animator = Animator()
         self.size = 0
 
-    def set_start_location(self, start_location):
-        self.location = start_location
-        self.block_target = start_location
-
     def start(self):
         self.animator.start()
+        # Update once to setup the first drawing
+        self.update()
+        # Pause until the game start event
+        self.set_pause(True)
         super().start()
 
+    def process_event(self, event):
+
+        if event.type == GAME_START:
+            self.set_pause(False)
+        elif event.type == LEVEL_RESET:
+            self.start()
+        elif event.type == LEVEL_FINISH:
+            self.set_enable(False)
+        elif event.type == GAME_OVER:
+            self.set_pause(True)
+        super().process_event(event)
+
     def update(self):
+        # If not travelling in the direction of the block target, teleport to the block target
+        # This prevents the entities from flying off the map in case of a program interruption such as scaling
         if (self.block_target - self.location).vector().normalised() != self.direction:
             self.location = self.block_target
 
+        # Moving in the current direction
         self.location += self.direction * self.speed * globals.delta_time
 
+        # Update animator
         self.animator.update()
         super().update()
 
     def on_scale(self, container_bounds):
+        # Teleport to block target on scale
         self.location = self.block_target
+        # Copy bounds and surface from maze
         self.as_bounds = self.parent.maze.as_bounds.copy()
         self.bounds = self.parent.maze.bounds.copy()
         self.surface = self.parent.maze.surface.copy()
+        # Calculate size
         self.size = self.parent.maze.block_size * ENTITY_SIZE_FACTOR
 
-    def on_block(self):
+    def on_target_block(self):
+        """
+        Returns whether the entity has reached the target block
+
+        Returns:
+            bool: Whether the entity has reached the target block
+        """
         return Point.distance(self.location, self.block_target) < self.speed * globals.delta_time
 
     def get_drawing_bounds(self):
+        """
+        Returns the drawing bounds of the entity
+
+        Returns:
+            Bounds: The drawing bounds of the entity
+        """
         return Bounds(self.parent.maze.block_size * (self.location.x + (1 - ENTITY_SIZE_FACTOR) / 2),
                       self.parent.maze.block_size * (self.location.y + (1 - ENTITY_SIZE_FACTOR) / 2),
                       self.size,
@@ -53,6 +112,18 @@ class Entity(GameComponent):
 
 
 class Pacman(Entity):
+    """
+    Pacman is the player controlled entity
+
+    Attributes:
+    -----------
+    dead (bool): Whether pacman has died
+    points (int): The number of points collected
+    lives (int): The amount of lives left
+    next_direction (Vector): The queued direction from user input
+    face_direction (Vector): The current direction pacman is facing in (does not have to be moving)
+    point_munch_sound (bool): Determines the next munch sound to be used (False: munch 1, True: munch 2)
+    """
     speed = PAC_MAN_SPEED
     traversable_blocks = (MazeBlockType.PATH,)
 
@@ -60,33 +131,42 @@ class Pacman(Entity):
         super().__init__(parent, scale)
         self.dead = False
         self.points = 0
+        self.lives = PACMAN_LIVES
         self.next_direction = Vector(0, 0)
         self.face_direction = Vector(0, 0)
+        self.point_munch_sound = False
+        self.ghost_point_value = INITIAL_GHOST_POINT_VALUE
 
+        # Add pacman animations
         self.animator.add_animation(
-            Animation("Moving", load_animation(PACMAN_MOVING_ANIMATION_FILES), PACMAN_ANIMATION_FRAME_RATE, True))
+            Animation("Moving", load_animation(PACMAN_MOVING_ANIMATION), PACMAN_ANIMATION_FRAME_RATE, True))
         self.animator.add_animation(
-            Animation("Idle", load_animation(PACMAN_IDLE_ANIMATION_FILES), PACMAN_ANIMATION_FRAME_RATE, True))
+            Animation("Idle", load_animation(PACMAN_IDLE_ANIMATION), PACMAN_ANIMATION_FRAME_RATE, True))
         self.animator.add_animation(
-            Animation("Death", load_animation(PACMAN_DEATH_ANIMATION_FILES), PACMAN_DEATH_ANIMATION_FRAME_RATE, False))
+            Animation("Death", load_animation(PACMAN_DEATH_ANIMATION), PACMAN_DEATH_ANIMATION_FRAME_RATE, False))
 
     def start(self):
         self.dead = False
         self.direction = Vector(0, 0)
         self.next_direction = Vector(0, 0)
         self.face_direction = Vector(1, 0)
+        self.point_munch_sound = False
+        self.ghost_point_value = INITIAL_GHOST_POINT_VALUE
 
-        x = random.randrange(0, self.parent.maze.width - 1)
-        y = random.randrange(0, self.parent.maze.height - 1)
-        while self.parent.maze.point(Point(x, y)) != MazeBlockType.PATH:
-            x = random.randrange(0, self.parent.maze.width - 1)
-            y = random.randrange(0, self.parent.maze.height - 1)
+        # Choose a random spawn location
+        spawn_location = Point(random.randrange(0, MAZE_WIDTH - 1), random.randrange(0, MAZE_HEIGHT - 1))
+        while self.parent.maze.point(spawn_location) != MazeBlockType.PATH or \
+                Point.distance(spawn_location, GHOST_CAGE_EXIT) < PACMAN_SPAWN_DISTANCE_THRESHOLD:
+            spawn_location = Point(random.randrange(0, MAZE_WIDTH - 1), random.randrange(0, MAZE_HEIGHT - 1))
 
-        self.location = Point(x, y)
+        self.location = spawn_location
         self.block_target = self.location
+
+        # Remove point at the
+        self.parent.maze.point(self.location).pickup_consumed = True
         super().start()
 
-    def process_events(self, event):
+    def process_event(self, event):
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT or event.key == pygame.K_a:
@@ -97,35 +177,87 @@ class Pacman(Entity):
                 self.next_direction = Vector(0, 1)
             elif event.key == pygame.K_UP or event.key == pygame.K_u:
                 self.next_direction = Vector(0, -1)
+        elif event.type == PACMAN_DEATH:
+            self.dead = True
+        elif event.type == FRIGHTENED_MODE_END:
+            self.ghost_point_value = INITIAL_GHOST_POINT_VALUE
+        elif event.type == GHOST_EATEN_START:
+            self.add_points(self.ghost_point_value)
+            print(self.ghost_point_value)
+            if self.ghost_point_value == INITIAL_GHOST_POINT_VALUE * 8:
+                self.ghost_point_value = INITIAL_GHOST_POINT_VALUE
+            else:
+                self.ghost_point_value *= 2
+            self.set_pause(True)
+        elif event.type == GHOST_EATEN_END:
+            self.set_pause(False)
 
-        super().process_events(event)
+        super().process_event(event)
 
     def update(self):
-
-        if self.on_block() and not self.dead:
-            self.location = self.block_target
+        if self.on_target_block() and not self.dead:
+            self.location = self.block_target  # Teleport to target block to get rid of minor differences
+            # If the queued direction is possible
             if self.parent.maze.point(self.location + self.next_direction) in self.traversable_blocks:
+                # Set the direction to the queued direction
                 self.direction = self.next_direction
 
+            # If the current direction is possible
             if self.parent.maze.point(self.location + self.direction) in self.traversable_blocks:
+                # Set the block target the next block in direction
                 self.block_target = self.location + self.direction
+            # Otherwise
             else:
+                # Stop moving
                 self.direction = Vector(0, 0)
                 self.next_direction = Vector(0, 0)
 
+            # Get block currently on
             block = self.parent.maze.point(self.location)
-            if block.block_type == MazeBlockType.PATH:
-                if not block.pickup_consumed:
-                    if block.pickup_type == BlockPickupType.POINT:
-                        self.points += POINT_PICKUP_VALUE
-                    elif block.pickup_type == BlockPickupType.POWER_PELLET:
-                        self.parent.set_frightened_mode()
+            # If the pickup has not already been consumed
+            if not block.pickup_consumed:
+                # If its a point
+                if block.pickup_type == BlockPickupType.POINT:
+                    self.add_points(POINT_PICKUP_VALUE)  # Add points
+                    # Play munch eating sound
+                    self.point_munch_sound = not self.point_munch_sound
+                    if self.point_munch_sound:
+                        SoundManager.sounds.get(SoundTrack.POINT_EATEN_1).play()
+                    else:
+                        SoundManager.sounds.get(SoundTrack.POINT_EATEN_2).play()
+
+                # If its a power pellet
+                elif block.pickup_type == BlockPickupType.POWER_PELLET:
+                    self.add_points(POWER_PELLET_PICKUP_VALUE)  # Add points
+                    # Post frightened mode start event
+                    pygame.event.post(pygame.event.Event(FRIGHTENED_MODE_START))
+                    # Remove all current frightened mode end events to refresh timer
+                    TimedEventManager.remove_timed_events_of_type(FRIGHTENED_MODE_END)
+                    # Schedule new frightened mode end event
+                    TimedEventManager.add_timed_event(pygame.event.Event(FRIGHTENED_MODE_END),
+                                                      GHOST_FRIGHTENED_DURATION)
+
+                elif block.pickup_type == BlockPickupType.FRUIT:
+                    self.add_points(FRUIT_PICKUP_VALUE)  # Add points
+                    TimedEventManager.add_timed_event(pygame.event.Event(FRUIT_SPAWN_READY), FRUIT_COOLDOWN_DURATION)
+
+                # Set the pickup consumed to true
                 block.pickup_consumed = True
 
+            # If all the points are eaten
+            if globals.points_left <= 0:
+                # Post level finish event
+                pygame.event.post(pygame.event.Event(LEVEL_FINISH))
+
         if self.dead:
+            self.direction = Vector(0, 0)
             self.animator.set_animation("Death")
             if self.animator.finished:
-                self.parent.pacman_death_end()
+                self.lives -= 1
+                if self.lives == 0:
+                    pygame.event.post(pygame.event.Event(GAME_OVER))
+                else:
+                    pygame.event.post(pygame.event.Event(LEVEL_RESET))
                 return
         elif self.direction != Vector(0, 0):
             self.animator.set_animation("Moving")
@@ -146,6 +278,12 @@ class Pacman(Entity):
 
     def end(self):
         self.points = 0
+        self.lives = PACMAN_LIVES
+
+    def add_points(self, amount):
+        self.points += amount
+        if self.points > globals.highscore:
+            globals.highscore = self.points
 
 
 class Ghost(Entity):
@@ -169,15 +307,14 @@ class Ghost(Entity):
                                    GhostAIState.FRIGHTENED: self.frightened_state,
                                    GhostAIState.EATEN: self.eaten_state}
 
-        animation = []
-        for image in GHOST_ANIMATION_FILES:
-            animation.append(pygame.image.load(image))
-            pixels = pygame.PixelArray(animation[-1])
+        animation = load_animation(GHOST_NORMAL_ANIMATION)
+        for image in animation:
+            pixels = pygame.PixelArray(image)
             pixels.replace(RED, self.color, 0.15)
             del pixels
         self.animator.add_animation(Animation("Normal", animation, GHOST_ANIMATION_FRAME_RATE, True))
         self.animator.add_animation(
-            Animation("Frightened", load_animation(GHOST_FRIGHTENED_ANIMATION_FILES), GHOST_ANIMATION_FRAME_RATE, True))
+            Animation("Frightened", load_animation(GHOST_FRIGHTENED_ANIMATION), GHOST_ANIMATION_FRAME_RATE, True))
 
     def start(self):
         self.location = self.spawn_point
@@ -191,23 +328,43 @@ class Ghost(Entity):
         self.turn_around = False
         super().start()
 
+    def process_event(self, event):
+
+        if event.type == FRIGHTENED_MODE_START:
+            self.set_state(GhostAIState.FRIGHTENED)
+        elif event.type == FRIGHTENED_MODE_END:
+            if self.current_state != GhostAIState.EATEN:
+                self.set_state(self.normal_state)
+        elif event.type == GHOST_EATEN_START:
+            if self.current_state != GhostAIState.EATEN or event.ghost == self:
+                self.set_pause(True)
+        elif event.type == GHOST_EATEN_END:
+            self.set_pause(False)
+        elif event.type == PACMAN_DEATH:
+            self.set_pause(True)
+
+        super().process_event(event)
+
     def update(self):
 
-        if Point.distance(self.location,
-                          self.parent.pacman.location) < ENTITY_COLLISION_DISTANCE:
+        if Point.distance(self.location, self.parent.pacman.location) < ENTITY_COLLISION_DISTANCE:
             if self.current_state == GhostAIState.FRIGHTENED:
-                self.parent.ghost_eaten()
+                pygame.event.post(pygame.event.Event(GHOST_EATEN_START, ghost=self))
+                TimedEventManager.add_timed_event(pygame.event.Event(GHOST_EATEN_END), GHOST_EATEN_PAUSE_DURATION)
                 self.set_state(GhostAIState.EATEN)
+                globals.ghosts_eaten += 1
+                SoundManager.sounds.get(SoundTrack.GHOST_EATEN).play(0, SoundPlayMode.RESTART)
+
             elif self.current_state == GhostAIState.SCATTER or self.current_state == GhostAIState.CHASE:
-                self.parent.pacman.dead = True
-                self.parent.pacman_death()
+                pygame.event.post(pygame.event.Event(PACMAN_DEATH))
+                SoundManager.instant_stop()
+                SoundManager.sounds.get(SoundTrack.PACMAN_DEATH).play(0, SoundPlayMode.TIMED, PACMAN_DEATH_SOUND_DELAY)
 
         if self.current_state != GhostAIState.EATEN and self.current_state != GhostAIState.FRIGHTENED:
             self.state_timer += globals.delta_time
 
-            if self.state_timer > GHOST_STATE_SCHEDULE[
-                self.state_schedule_index] and self.state_schedule_index < len(
-                GHOST_STATE_SCHEDULE) - 1:
+            if self.state_timer > GHOST_STATE_SCHEDULE[self.state_schedule_index] and self.state_schedule_index < \
+                    len(GHOST_STATE_SCHEDULE) - 1:
                 self.state_timer = 0
                 if self.current_state == GhostAIState.SCATTER:
                     self.normal_state = GhostAIState.CHASE
@@ -216,7 +373,7 @@ class Ghost(Entity):
                 self.set_state(self.normal_state)
                 self.state_schedule_index += 1
 
-        if self.on_block():
+        if self.on_target_block():
             self.location = self.block_target
             if self.turn_around:
                 self.direction = self.direction * -1
@@ -224,7 +381,7 @@ class Ghost(Entity):
             else:
                 if MAZE_CAGE_BOUNDS.is_within(self.location.x,
                                               self.location.y) and self.current_state != GhostAIState.EATEN:
-                    self.direction = self.get_pathfinding_direction(Point(14, 10))
+                    self.direction = self.get_pathfinding_direction(GHOST_CAGE_EXIT)
                 else:
                     self.state_method_table.get(self.current_state)()
 
@@ -243,8 +400,10 @@ class Ghost(Entity):
                                 ghost_bounds.y + ghost_bounds.h * GHOST_EYE_VERTICAL_OFFSET_FACTOR)
             eye2_center = Point(ghost_bounds.x + (self.size + eye_separation) / 2, eye1_center.y)
 
-            pupil1_center = eye1_center + self.direction * self.size * GHOST_PUPIL_OFFSET_FACTOR
-            pupil2_center = eye2_center + self.direction * self.size * GHOST_PUPIL_OFFSET_FACTOR
+            pupil1_center = Point(eye1_center.x + self.direction.x * self.size * GHOST_PUPIL_OFFSET_FACTOR[0],
+                                  eye1_center.y + self.direction.y * self.size * GHOST_PUPIL_OFFSET_FACTOR[1])
+            pupil2_center = Point(eye2_center.x + self.direction.x * self.size * GHOST_PUPIL_OFFSET_FACTOR[0],
+                                  eye2_center.y + self.direction.y * self.size * GHOST_PUPIL_OFFSET_FACTOR[1])
 
             draw_ellipse(self.surface, WHITE, eye1_center, GHOST_EYE_RADIUS_FACTOR[0] * self.size,
                          GHOST_EYE_RADIUS_FACTOR[1] * self.size)
@@ -294,6 +453,7 @@ class Ghost(Entity):
             self.direction = self.get_pathfinding_direction(self.spawn_point)
             self.target_location = self.spawn_point
         else:
+            globals.ghosts_eaten -= 1
             self.set_state(self.normal_state)
 
     def get_pathfinding_direction(self, target):

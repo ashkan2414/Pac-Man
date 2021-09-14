@@ -1,4 +1,6 @@
 import math
+import os
+
 import pygame
 
 
@@ -11,11 +13,34 @@ def draw_ellipse(surface, color, center, x_radius, y_radius):
     pygame.draw.ellipse(surface, color, ellipse_rect)
 
 
-def load_animation(files):
+def load_animation(animation_path):
+
+    def frame_num(file_name):
+        frame_num = int("".join(filter(str.isdigit, file_name)))
+        return frame_num
+
+    file_path = animation_path[0]
+    file_name = animation_path[1]
+
+    files = []
+
+    with os.scandir(file_path) as entries:
+        for file in entries:
+            if file_name in file.name:
+                files.append(file.name)
+
+    files.sort(key=frame_num)
+
     frames = []
     for file in files:
-        frames.append(pygame.image.load(file))
+        frames.append(pygame.image.load(os.path.join(file_path, file)))
     return frames
+
+
+def add_text_digit_padding(text, padding):
+    if len(text) < padding:
+        text = "0" * (padding - len(text)) + text
+    return text
 
 
 class CartesianObject:
@@ -40,15 +65,14 @@ class CartesianObject:
     def translate(self, displacement):
         Translates the cartesian object with a displacement
 
-    @staticmethod
+    Static Methods:
+    ---------------
     def distance(object1, object2):
         Returns the distance between two cartesian objects
 
-    @staticmethod
     def rounded(point):
         Returns a rounded version of the cartesian object
 
-    @staticmethod
     def rotated(cartesian_object, angle, axis):
         Returns a resultant cartesian object rotated around another cartesian object axis
     """
@@ -257,11 +281,11 @@ class Point(CartesianObject):
     def vector(self):
         Returns this point as a vector
 
-    @staticmethod
+    Static Methods:
+    ---------------
     def left_most(points):
         Returns the left most lowest point in a set of points
 
-    @staticmethod
     def get_neighbour_points(point):
         Returns the surrounding points of a point
 
@@ -358,7 +382,11 @@ class Vector(CartesianObject):
     def intersects_points(self, points, start=Point(0, 0)):
         Returns whether the vector intersects any point
 
-    @staticmethod
+    def angular_position(self):
+        Returns the angular position of the vector on a cartesian grid
+
+    Static Methods:
+    ---------------
     def angle(vector1, vector2):
         Returns the angle between two vectors
 
@@ -411,6 +439,12 @@ class Vector(CartesianObject):
         return False
 
     def angular_position(self):
+        """
+        Returns the angular position of the vector on a cartesian grid
+
+        Returns:
+            float: The angular position of the vector
+        """
         return math.degrees(math.atan2(self.x, self.y))
 
     @staticmethod

@@ -32,15 +32,15 @@ class Animator:
         return self.current_frame
 
     def add_animation(self, animation):
-        self.animations[animation.name] = animation
+        self.animations[animation.id] = animation
 
-    def set_animation(self, animation_name):
+    def set_animation(self, animation_id):
 
-        if self.current_animation and self.current_animation.name == animation_name:
+        if self.current_animation and self.current_animation.id == animation_id:
             return
 
-        if animation_name in self.animations:
-            self.current_animation = self.animations.get(animation_name)
+        if animation_id in self.animations:
+            self.current_animation = self.animations.get(animation_id)
             self.finished = False
             self.current_frame_num = 0
             self.current_time = 0
@@ -48,8 +48,8 @@ class Animator:
 
 class Animation:
 
-    def __init__(self, animation_name, frames, frame_rate, loop):
-        self.name = animation_name
+    def __init__(self, id, frames, frame_rate, loop):
+        self.id = id
         self.frames = frames
         self.frame_rate = frame_rate
         self.loop = loop

@@ -1,32 +1,37 @@
+from animation import Animator
 from game_component import *
-from globals import ButtonState
 from tools import *
 
 
 class Button(GameComponent):
 
-    def __init__(self, parent, scale, normal_image, hover_image=None, clicked_image=None, func=None):
+    def __init__(self, parent, scale, normal, hover=None, clicked=None, func=None):
         super().__init__(parent, scale)
 
-        normal = normal_image
-        hover = hover_image
-        clicked = clicked_image
+        if not hover and clicked:
+            hover = hover
+        elif not hover and not clicked:
+            hover = normal
+            clicked = normal
+        elif hover and not clicked:
+            clicked = hover
 
-        if not hover_image and clicked_image:
-            hover = clicked_image
-        elif not hover_image and not clicked_image:
-            hover = normal_image
-            clicked = normal_image
-        elif hover_image and not clicked_image:
-            clicked = hover_image
-
-        self.state_images = {ButtonState.NORMAL: normal, ButtonState.HOVER: hover, ButtonState.CLICKED: clicked}
         self.current_state = ButtonState.NORMAL
         self.last_state = ButtonState.NORMAL
         self.function = func
-        self.aspect_ratio = normal.get_width() / normal.get_height()
+        self.aspect_ratio = normal.frames[0].get_width() / normal.frames[0].get_height()
 
-    def process_events(self, event):
+        self.animator = Animator()
+        self.animator.add_animation(normal)
+        self.animator.add_animation(hover)
+        self.animator.add_animation(clicked)
+
+    def start(self):
+        self.current_state = ButtonState.NORMAL
+        self.last_state = ButtonState.NORMAL
+        self.animator.set_animation(self.current_state)
+
+    def process_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == pygame.BUTTON_LEFT:
             if self.current_state == ButtonState.HOVER:
                 self.current_state = ButtonState.CLICKED
@@ -34,7 +39,7 @@ class Button(GameComponent):
             if self.current_state == ButtonState.CLICKED:
                 self.current_state = ButtonState.HOVER
 
-        super().process_events(event)
+        super().process_event(event)
 
     def update(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -47,7 +52,10 @@ class Button(GameComponent):
         if self.function and self.current_state == ButtonState.CLICKED and self.current_state != self.last_state:
             self.function()
 
+        self.animator.set_animation(self.current_state)
+
         self.last_state = self.current_state
+        self.animator.update()
         super().update()
 
     def draw(self):
@@ -55,7 +63,7 @@ class Button(GameComponent):
         image_bounds = self.as_bounds.copy()
         image_bounds.x = 0
         image_bounds.y = 0
-        draw_image(self.surface, self.state_images.get(self.current_state), image_bounds)
+        draw_image(self.surface, self.animator.get_current_frame(), image_bounds)
         super().draw()
 
 
@@ -99,3 +107,55 @@ class Text(GameComponent):
             self.text = new_text
             self.render()
             self.draw_surface()
+
+
+class IconBar(GameComponent):
+
+    def __init__(self, parent, scale, icon_image, icon_count):
+        super().__init__(parent, scale)
+        self.image = icon_image
+        self.count = icon_count
+        self.current_num = self.count
+        self.aspect_ratio = (icon_count * self.image.get_width()) / self.image.get_height()
+        self.scaled_image = icon_image
+
+    def start(self):
+        self.current_num = self.count
+        self.draw_surface()
+
+    def draw_surface(self):
+        self.surface.fill(EMPTY)
+        for i in range(self.current_num):
+            self.surface.blit(self.scaled_image, (i*self.scaled_image.get_width(), 0))
+
+    def on_scale(self, container_bounds):
+        super().on_scale(container_bounds)
+        self.scaled_image = pygame.transform.smoothscale(self.image, (self.as_bounds.width//self.count,
+                                                                      self.as_bounds.height))
+        self.draw_surface()
+
+    def set_current_num(self, num):
+        if num != self.current_num and 0 <= num <= self.count:
+            self.current_num = num
+            self.draw_surface()
+
+
+class Icon(GameComponent):
+
+    def __init__(self, parent, scale, image):
+        super().__init__(parent, scale)
+        self.image = image
+        self.aspect_ratio = self.image.get_width()/self.image.get_height()
+        self.scaled_image = image
+
+    def start(self):
+        self.draw_surface()
+
+    def draw_surface(self):
+        self.surface.fill(EMPTY)
+        self.surface.blit(self.scaled_image, (0, 0))
+
+    def on_scale(self, container_bounds):
+        super().on_scale(container_bounds)
+        self.scaled_image = pygame.transform.smoothscale(self.image, self.as_bounds.size())
+        self.draw_surface()
